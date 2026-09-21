@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Turn your Amazon product notes into an honest, copy-ready review draft." />
+    <title>Review Sprint — Amazon review drafts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="#top" aria-label="Review Sprint home"><span class="brand-mark">R</span> REVIEW SPRINT</a>
+        <div class="status"><span></span> private, in your browser</div>
+      </header>
+
+      <section class="hero" id="top">
+        <div>
+          <p class="eyebrow">HONEST REVIEW DRAFTS, FAST</p>
+          <h1>From product page<br />to your own words.</h1>
+          <p class="lede">Bring the product details, answer a handful of questions, and get a natural review draft ready to copy.</p>
+        </div>
+        <aside class="promise">
+          <span class="spark">✦</span>
+          <strong>Your experience<br />stays yours.</strong>
+          <p>Use this to organize real feedback—not to invent it.</p>
+        </aside>
+      </section>
+
+      <nav class="steps" aria-label="Review creation steps">
+        <button class="step is-active" data-step="1"><b>01</b><span>Product</span></button>
+        <button class="step" data-step="2"><b>02</b><span>Experience</span></button>
+        <button class="step" data-step="3"><b>03</b><span>Draft</span></button>
+      </nav>
+
+      <section class="card stage is-visible" id="stage-1" aria-labelledby="product-heading">
+        <div class="stage-heading">
+          <p class="eyebrow">STEP 01</p>
+          <h2 id="product-heading">Bring in the product</h2>
+          <p>Paste the page for the best result. A link can also pull in available public page text.</p>
+        </div>
+
+        <div class="source-tabs" role="tablist" aria-label="Product source">
+          <button class="source-tab is-selected" data-source="paste" role="tab" aria-selected="true">Paste page</button>
+          <button class="source-tab" data-source="link" role="tab" aria-selected="false">Use a link</button>
+        </div>
+
+        <div id="paste-source" class="source-panel">
+          <label for="pageText">Amazon page text</label>
+          <textarea id="pageText" spellcheck="false" placeholder="Click on the Amazon product page, press Ctrl+A, Ctrl+C, then paste here…"></textarea>
+          <p class="field-note">We’ll look for a product title, features, and description. Nothing is uploaded or saved.</p>
+          <button class="primary" id="analyzePaste">Analyze pasted page <span>→</span></button>
+        </div>
+
+        <div id="link-source" class="source-panel hidden">
+          <label for="productUrl">Amazon product link</label>
+          <div class="url-row">
+            <input id="productUrl" type="url" placeholder="https://www.amazon.com/dp/..." />
+            <button class="primary compact" id="importLink">Import</button>
+          </div>
+          <p class="field-note">We’ll try a read-only page importer. If Amazon blocks it, paste the page text instead—this always works.</p>
+          <div class="import-status" id="importStatus" aria-live="polite"></div>
+        </div>
+
+        <div class="product-preview hidden" id="productPreview">
+          <span class="preview-label">PRODUCT FOUND</span>
+          <h3 id="detectedTitle">Product title</h3>
+          <p id="detectedMeta">Details ready to use</p>
+          <button class="text-button" id="editProduct">Edit product name</button>
+        </div>
+        <div class="manual-product hidden" id="manualProduct">
+          <label for="productName">Product name</label>
+          <input id="productName" type="text" placeholder="What are you reviewing?" />
+        </div>
+        <div class="stage-actions">
+          <button class="primary hidden" id="toQuestions">Continue to your experience <span>→</span></button>
+        </div>
+      </section>
+
+      <section class="card stage" id="stage-2" aria-labelledby="experience-heading">
+        <div class="stage-heading">
+          <p class="eyebrow">STEP 02</p>
+          <h2 id="experience-heading">What was it like?</h2>
+          <p>Specific details make the draft useful—and credible.</p>
+        </div>
+        <form id="experienceForm">
+          <div class="form-grid">
+            <fieldset class="rating-set">
+              <legend>Your rating</legend>
+              <div class="rating-control" aria-label="Choose a rating">
+                <button type="button" class="star" data-rating="1">★</button><button type="button" class="star" data-rating="2">★</button><button type="button" class="star" data-rating="3">★</button><button type="button" class="star" data-rating="4">★</button><button type="button" class="star" data-rating="5">★</button>
+                <span id="ratingLabel">Choose 1–5</span>
+              </div>
+            </fieldset>
+            <label>How long have you used it?
+              <select id="useTime"><option value="a few days">A few days</option><option value="a couple of weeks" selected>A couple of weeks</option><option value="a few months">A few months</option><option value="a long time">A long time</option></select>
+            </label>
+            <label>Who is it best for?
+              <input id="bestFor" type="text" placeholder="e.g. busy parents, small desks" />
+            </label>
+            <label>Would you recommend it?
+              <select id="recommend"><option value="yes">Yes</option><option value="with a small caveat">With a small caveat</option><option value="only for the right person">Only for the right person</option><option value="not really">Not really</option></select>
+            </label>
+          </div>
+          <label class="wide-label" for="liked">What did you genuinely like?</label>
+          <textarea id="liked" placeholder="Mention the feature, result, or moment that stood out…"></textarea>
+          <label class="wide-label" for="caveat">Anything a buyer should know? <span>Optional, but helpful</span></label>
+          <textarea id="caveat" placeholder="A limitation, setup note, or comparison point…"></textarea>
+          <p class="form-warning">Only submit reviews that reflect your own genuine use and opinion.</p>
+          <div class="stage-actions split"><button class="back" type="button" data-back="1">← Back</button><button class="primary" type="submit">Create review draft <span>→</span></button></div>
+        </form>
+      </section>
+
+      <section class="card stage" id="stage-3" aria-labelledby="draft-heading">
+        <div class="stage-heading draft-heading">
+          <div><p class="eyebrow">STEP 03</p><h2 id="draft-heading">Your review draft</h2></div>
+          <span class="ready-chip">Ready to personalize</span>
+        </div>
+        <div class="draft-product" id="draftProduct">PRODUCT</div>
+        <div class="title-box" contenteditable="true" id="reviewTitle" aria-label="Review title"></div>
+        <div class="review-box" contenteditable="true" id="reviewText" aria-label="Review text"></div>
+        <div class="draft-footer">
+          <span id="wordCount">0 words</span>
+          <span>Click either field to edit</span>
+        </div>
+        <div class="stage-actions split"><button class="back" type="button" data-back="2">← Adjust answers</button><button class="primary copy" id="copyReview">Copy review <span>⧉</span></button></div>
+        <p class="copy-feedback" id="copyFeedback" aria-live="polite"></p>
+      </section>
+
+      <footer>REVIEW SPRINT <span>•</span> Make the review sound like you.</footer>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
