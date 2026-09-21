@@ -5,9 +5,19 @@ function clean(s) { return (s || '').replace(/\s+/g, ' ').trim(); }
 function titleFromText(text) {
   const lines = text.split(/\r?\n/).map(clean).filter((x) => x.length > 8);
   const skip = /^(amazon|skip to|keyboard shortcuts|deliver to|all$|today's deals|customer reviews|price|add to cart|buy now|about this item|product information|visit the|brand:|search)/i;
+  // Amazon's copied desktop pages place the actual title directly after its store link.
+  // This is far more reliable than scanning the page header or full copied document.
+  const storeLine = lines.findIndex((line) => /^visit the .+ store$/i.test(line));
+  if (storeLine >= 0) {
+    const afterStore = lines.slice(storeLine + 1, storeLine + 4)
+      .find((line) => !skip.test(line) && line.length > 16 && line.length < 230 && !/out of 5 stars|bought in past month/i.test(line));
+    if (afterStore) return afterStore;
+  }
   // On Amazon's copied page text, the title is normally just above "About this item".
   // Prefer the longest sensible line in that neighborhood over navigation text at the top.
-  const about = lines.findIndex((line) => /^about this item$/i.test(line));
+  // "About this item" appears in Amazon's accessibility jump menu near the top.
+  // Use the last matching heading, which is the actual product-details section.
+  const about = lines.map((line) => line.toLowerCase()).lastIndexOf('about this item');
   if (about > 0) {
     const nearby = lines.slice(Math.max(0, about - 10), about)
       .filter((line) => !skip.test(line) && line.length < 190 && !/^\$|\b\d(?:\.\d)? out of 5/i.test(line));
@@ -16,8 +26,16 @@ function titleFromText(text) {
   return lines.find((line) => !skip.test(line) && line.length < 190) || '';
 }
 function detailsFromText(text) {
-  const lines = text.split(/\r?\n/).map(clean).filter((x) => x.length > 20 && x.length < 250);
-  return lines.filter((line) => /feature|material|size|color|compatible|includes|design|battery|quality|easy/i.test(line)).slice(0, 3).join(' · ');
+  const lines = text.split(/\r?\n/).map(clean).filter(Boolean);
+  const about = lines.map((line) => line.toLowerCase()).lastIndexOf('about this item');
+  if (about >= 0) {
+    const stopAt = lines.slice(about + 1).findIndex((line) => /^(item details|product description|sponsored|customer reviews|report an issue)/i.test(line));
+    const highlights = lines.slice(about + 1, stopAt < 0 ? about + 7 : about + 1 + stopAt)
+      .filter((line) => line.length > 18 && line.length < 360)
+      .slice(0, 3);
+    if (highlights.length) return highlights.join(' · ');
+  }
+  return '';
 }
 function showProduct(name, details = '') {
   state.product = clean(name) || 'This product'; state.details = clean(details);
@@ -69,7 +87,7 @@ function sentenceStart(rating) { return rating >= 5 ? 'I’m genuinely impressed
 function reviewTitle(rating, product, liked) {
   const starter = rating >= 4 ? 'Worth considering' : rating === 3 ? 'Good, with some trade-offs' : 'Not quite what I expected';
   const shortProduct = product.length > 50 ? 'this product' : product;
-  return liked ? `${starter} — ${shortProduct}` : starter;
+  return liked ? `${starter}: ${shortProduct}` : starter;
 }
 function createDraft(event) {
   event.preventDefault();
@@ -83,7 +101,7 @@ function createDraft(event) {
 function updateWordCount() { $('wordCount').textContent = `${$('reviewText').textContent.trim().split(/\s+/).filter(Boolean).length} words`; }
 async function copyReview() {
   const text = `${$('reviewTitle').textContent.trim()}\n\n${$('reviewText').textContent.trim()}`;
-  try { await navigator.clipboard.writeText(text); $('copyFeedback').textContent = 'Copied — ready to paste into Amazon.'; } catch { $('copyFeedback').textContent = 'Select the review text and copy it manually.'; }
+  try { await navigator.clipboard.writeText(text); $('copyFeedback').textContent = 'Copied. Ready to paste into Amazon.'; } catch { $('copyFeedback').textContent = 'Select the review text and copy it manually.'; }
 }
 document.querySelectorAll('.source-tab').forEach((button) => button.addEventListener('click', () => chooseSource(button.dataset.source)));
 $('analyzePaste').addEventListener('click', analyzePaste); $('importLink').addEventListener('click', importLink);
