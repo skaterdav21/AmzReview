@@ -9,12 +9,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="theme.css" />
+    <link rel="stylesheet" href="polish.css" />
   </head>
   <body>
     <main class="shell">
       <header class="topbar">
         <a class="brand" href="#top" aria-label="Review Sprint home"><span class="brand-mark">R</span> REVIEW SPRINT</a>
-        <div class="status"><span></span> private, in your browser</div>
+        <div class="header-actions">
+          <div class="status"><span></span> private, in your browser</div>
+          <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light mode" aria-pressed="false"><span class="theme-icon">☼</span><span id="themeText">Light</span></button>
+        </div>
       </header>
 
       <section class="hero" id="top">
@@ -84,9 +89,10 @@
         <div class="stage-heading">
           <p class="eyebrow">STEP 02</p>
           <h2 id="experience-heading">What was it like?</h2>
-          <p>Specific details make the draft useful and credible.</p>
+          <p id="experienceLead">Specific details make the draft useful and credible.</p>
         </div>
         <form id="experienceForm">
+          <div class="product-lens" id="productLens"><span>PRODUCT LENS</span><p id="productLensText">We’ll tailor these questions once the product is analyzed.</p></div>
           <div class="form-grid">
             <fieldset class="rating-set">
               <legend>Your rating</legend>
@@ -105,9 +111,11 @@
               <select id="recommend"><option value="yes">Yes</option><option value="with a small caveat">With a small caveat</option><option value="only for the right person">Only for the right person</option><option value="not really">Not really</option></select>
             </label>
           </div>
-          <label class="wide-label" for="liked">What did you genuinely like?</label>
+          <label class="wide-label" id="specificLabel" for="productSpecific">What happened when you used it?</label>
+          <textarea id="productSpecific" placeholder="Describe the real result, fit, setup, or performance you noticed…"></textarea>
+          <label class="wide-label" id="likedLabel" for="liked">What did you genuinely like?</label>
           <textarea id="liked" placeholder="Mention the feature, result, or moment that stood out…"></textarea>
-          <label class="wide-label" for="caveat">Anything a buyer should know? <span>Optional, but helpful</span></label>
+          <label class="wide-label" id="caveatLabel" for="caveat">Anything a buyer should know? <span>Optional, but helpful</span></label>
           <textarea id="caveat" placeholder="A limitation, setup note, or comparison point…"></textarea>
           <p class="form-warning">Only submit reviews that reflect your own genuine use and opinion.</p>
           <div class="stage-actions split"><button class="back" type="button" data-back="1">← Back</button><button class="primary" type="submit">Create review draft <span>→</span></button></div>
@@ -126,7 +134,7 @@
           <span id="wordCount">0 words</span>
           <span>Click either field to edit</span>
         </div>
-        <div class="stage-actions split"><button class="back" type="button" data-back="2">← Adjust answers</button><button class="primary copy" id="copyReview">Copy review <span>⧉</span></button></div>
+        <div class="stage-actions split"><div class="draft-actions"><button class="back" type="button" data-back="2">← Adjust answers</button><button class="back" type="button" id="anotherProduct">Review another product</button></div><button class="primary copy" id="copyReview">Copy review <span>⧉</span></button></div>
         <p class="copy-feedback" id="copyFeedback" aria-live="polite"></p>
       </section>
 
