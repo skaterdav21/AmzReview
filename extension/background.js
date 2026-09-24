@@ -1,5 +1,5 @@
 // Review Sprint add-on: reads the Amazon product page in the current tab and opens the app with it.
-const DEFAULT_APP_URL = 'https://skaterdav21.github.io/AmzReview/';
+const DEFAULT_APP_URL = 'https://review-sprint.pages.dev/';
 
 async function appUrl() {
   const { appUrl: saved } = await browser.storage.local.get('appUrl');

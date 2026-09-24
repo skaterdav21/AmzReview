@@ -36,7 +36,7 @@ To try it without signing (desktop only; it's removed when Firefox restarts): op
 
 ## Using a different app address
 
-The add-on opens `https://skaterdav21.github.io/AmzReview/` by default. If you move the app, for example to Cloudflare Pages, change the address in the add-on's settings: **⋮ → Add-ons → Review Sprint → Settings** on Android, or `about:addons → Review Sprint → Preferences` on desktop.
+The add-on opens `https://review-sprint.pages.dev/` by default. To use a different copy of the app, such as the GitHub Pages one, change the address in the add-on's settings: **⋮ → Add-ons → Review Sprint → Settings** on Android, or `about:addons → Review Sprint → Preferences` on desktop.
 
 ## Other ways to send products
 
