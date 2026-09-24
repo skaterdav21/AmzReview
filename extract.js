@@ -8,7 +8,7 @@
   const isBlockedPage = (text) => /robot check|enter the characters you see below|api-services-support@amazon\.com|to discuss automated access/i.test(text);
 
   function emptyProduct() {
-    return { title: '', bullets: [], description: '', specs: [], price: '', rating: '', brand: '', image: '', asin: '', url: '', buyerSummary: '' };
+    return { title: '', bullets: [], description: '', specs: [], price: '', rating: '', brand: '', image: '', asin: '', url: '', buyerSummary: '', aspects: '', reviews: [] };
   }
 
   function asinFromUrl(url) {
@@ -51,6 +51,12 @@
     product.rating = text('#acrPopover .a-icon-alt');
     product.brand = text('#bylineInfo');
     product.buyerSummary = (text('#product-summary') || text('[data-hook="cr-product-insights-summary"]')).slice(0, 800);
+    product.aspects = text('[data-hook="cr-insights-widget-aspects"]').slice(0, 400);
+    product.reviews = [...doc.querySelectorAll('[data-hook="review"]')].map((el) => ({
+      title: clean(el.querySelector('[data-hook="review-title"]')?.textContent).replace(/^\d(?:\.\d)? out of 5 stars\s*/i, '').slice(0, 120),
+      rating: clean(el.querySelector('[data-hook*="review-star-rating"], .review-rating')?.textContent).match(/\d(?:\.\d)?/)?.[0] || '',
+      body: clean(el.querySelector('[data-hook="review-body"]')?.textContent).replace(/read more$/i, '').slice(0, 400)
+    })).filter((r) => r.body.length > 20).slice(0, 8);
     const image = doc.querySelector('#landingImage, #imgBlkFront');
     product.image = image?.getAttribute('data-old-hires') || image?.getAttribute('src') || '';
     product.url = canonicalUrl(url);
@@ -98,6 +104,24 @@
     return rest.slice(0, stop < 0 ? max : Math.min(stop, max));
   }
 
+  // Copied review blocks look like: "5.0 out of 5 stars Great charger" / "Reviewed in … on …" / "Verified Purchase" / body / "12 people found this helpful".
+  function reviewsFromLines(lines) {
+    const reviews = [];
+    lines.forEach((line, index) => {
+      const head = line.match(/^(\d(?:\.\d)?) out of 5 stars\s*(.*)$/i);
+      if (!head || !/^reviewed in /i.test(lines[index + 1] || '')) return;
+      const body = [];
+      for (const next of lines.slice(index + 2, index + 12)) {
+        if (/people found this helpful|^helpful$|^report$|out of 5 stars|^reviewed in /i.test(next)) break;
+        if (/verified purchase|^(color|size|style|pattern)( name)?:/i.test(next)) continue;
+        body.push(next);
+      }
+      const text = clean(body.join(' ')).slice(0, 400);
+      if (text.length > 20) reviews.push({ title: clean(head[2]).slice(0, 120), rating: head[1], body: text });
+    });
+    return reviews.slice(0, 8);
+  }
+
   function fromText(text, url = '') {
     const product = emptyProduct();
     const lines = text.split(/\r?\n/).map(clean).filter(Boolean);
@@ -109,9 +133,11 @@
       .slice(0, 10);
     product.description = sectionAfter(lines, 'product description', /^(product information|customer reviews|sponsored|videos|looking for specific info)/i, 12)
       .filter((line) => line.length > 25).join(' ').slice(0, 1500);
-    product.rating = text.match(/(\d(?:\.\d)?) out of 5 stars/i)?.[0] || '';
+    // The product's own rating stands alone on its line; review headers continue with the review title.
+    product.rating = lines.find((line) => /^\d(?:\.\d)? out of 5 stars$/i.test(line)) || (reviewsFromLines(lines).length ? '' : text.match(/(\d(?:\.\d)?) out of 5 stars/i)?.[0] || '');
     product.price = text.match(/\$\s?\d[\d,]*(?:\.\d{2})?/)?.[0] || '';
     product.brand = lines.find((line) => /^visit the .+ store$/i.test(line)) || '';
+    product.reviews = reviewsFromLines(lines);
     product.buyerSummary = sectionAfter(lines, 'customers say', /^(generated from the text|select to learn more|reviews with images|top reviews)/i, 4).join(' ').slice(0, 800);
     product.url = canonicalUrl(url);
     product.asin = asinFromUrl(url);
@@ -131,6 +157,10 @@
     product.rating = str(data.r, 40);
     product.brand = str(data.br, 80);
     product.buyerSummary = str(data.cs, 800);
+    product.aspects = str(data.ra, 400);
+    product.reviews = (Array.isArray(data.rv) ? data.rv : []).slice(0, 8)
+      .map((r) => ({ title: str(r?.t, 120), rating: str(r?.r, 3), body: str(r?.b, 400) }))
+      .filter((r) => r.body.length > 20);
     product.image = /^https:\/\//i.test(data.i || '') ? String(data.i).slice(0, 500) : '';
     product.url = canonicalUrl(data.u || '');
     product.asin = asinFromUrl(data.u || '') || str(data.a, 10);
@@ -146,6 +176,8 @@
       + `d:(q('#productDescription')||q('#bookDescription_feature_div')).slice(0,1200),`
       + `s:[...document.querySelectorAll('#productOverview_feature_div tr,#productDetails_techSpec_section_1 tr')].map(r=>c([...r.children].map(x=>c(x.textContent)).join(': '))).filter(x=>x.length>3&&x.length<160).slice(0,12),`
       + `p:q('#corePrice_feature_div .a-offscreen')||q('.a-price .a-offscreen'),r:q('#acrPopover .a-icon-alt'),br:q('#bylineInfo'),cs:q('#product-summary').slice(0,700),`
+      + `ra:q('[data-hook="cr-insights-widget-aspects"]').slice(0,400),`
+      + `rv:[...document.querySelectorAll('[data-hook="review"]')].map(e=>({t:c(e.querySelector('[data-hook="review-title"]')?.textContent).replace(/^\\d(\\.\\d)? out of 5 stars\\s*/i,'').slice(0,120),r:(c(e.querySelector('[data-hook*="review-star-rating"],.review-rating')?.textContent).match(/\\d(\\.\\d)?/)||[''])[0],b:c(e.querySelector('[data-hook="review-body"]')?.textContent).slice(0,350)})).filter(x=>x.b.length>20).slice(0,8),`
       + `i:img?.getAttribute('data-old-hires')||img?.src||'',u:location.href.split('?')[0]};`
       + `window.open(${JSON.stringify(appUrl)}+'#import='+encodeURIComponent(JSON.stringify(d)),'_blank')})()`;
     return `javascript:${encodeURIComponent(body)}`;

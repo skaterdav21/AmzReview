@@ -27,6 +27,13 @@ function extractProduct() {
     r: first(['#acrPopover .a-icon-alt', '#averageCustomerReviews .a-icon-alt', '#acrCustomerReviewText']),
     br: first(['#bylineInfo', '#bylineInfo_feature_div a']),
     cs: first(['#product-summary', '[data-hook="cr-product-insights-summary"]']).slice(0, 700),
+    ra: first(['[data-hook="cr-insights-widget-aspects"]', '#cr-product-insights-cards']).slice(0, 400),
+    // Top customer reviews shown on the product page (desktop and mobile layouts share these hooks).
+    rv: [...document.querySelectorAll('[data-hook="review"], [data-hook="mobley-review-content"]')].map((el) => ({
+      t: clean(el.querySelector('[data-hook="review-title"]')?.textContent).replace(/^\d(?:\.\d)? out of 5 stars\s*/i, '').slice(0, 120),
+      r: clean(el.querySelector('[data-hook*="review-star-rating"], .review-rating')?.textContent).match(/\d(?:\.\d)?/)?.[0] || '',
+      b: clean(el.querySelector('[data-hook="review-body"], [data-hook="review-collapsed"]')?.textContent).replace(/read more$/i, '').slice(0, 350)
+    })).filter((review) => review.b.length > 20).slice(0, 8),
     i: img?.getAttribute('data-old-hires') || img?.currentSrc || img?.src || '',
     u: location.href.split('?')[0]
   };

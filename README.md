@@ -45,6 +45,15 @@ The key is stored only in your browser's localStorage and is sent directly to th
 
 To give everyone AI writing without their own key, deploy the small relay in [`relay/`](relay/README.md) on Cloudflare's free plan and put its URL in `config.js`. Your key stays a secret on Cloudflare, and the relay limits each visitor's requests. Setup takes about 10 minutes; see [relay/README.md](relay/README.md).
 
+## Automatic Cloudflare updates
+
+Every push to `main` redeploys https://review-sprint.pages.dev and the AI relay through [`.github/workflows/deploy-cloudflare.yml`](.github/workflows/deploy-cloudflare.yml). GitHub Pages keeps updating by itself as before. The workflow needs two repository secrets under **Settings → Secrets and variables → Actions**:
+
+- `CLOUDFLARE_API_TOKEN`: created at <https://dash.cloudflare.com/profile/api-tokens> from the **Edit Cloudflare Workers** template, with **Account → Cloudflare Pages → Edit** added and scoped to your account.
+- `CLOUDFLARE_ACCOUNT_ID`: from **Workers & Pages** (right sidebar).
+
+Until both are set, the workflow skips deploying with a warning. You can also run it by hand from the **Actions** tab (**Deploy to Cloudflare → Run workflow**).
+
 ## Files
 
 - `index.html`: page structure

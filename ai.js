@@ -117,7 +117,7 @@
   // Tries each model in turn; a busy model gets one short retry before moving on.
   async function callWithFallback(options) {
     const call = backend() === 'gemini' ? callGemini : callGroq;
-    const models = modelsToTry();
+    const models = modelsToTry().slice(0, options.maxModels || Infinity);
     let lastError;
     for (const [index, model] of models.entries()) {
       for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -160,32 +160,70 @@
     const parts = [`Product: ${product.title}`];
     if (product.brand) parts.push(`Brand/store: ${product.brand}`);
     if (product.price) parts.push(`Listed price: ${product.price}`);
+    if (product.rating) parts.push(`Average rating: ${product.rating}`);
     if (product.bullets.length) parts.push(`Listing highlights:\n${product.bullets.map((b) => `- ${b}`).join('\n')}`);
     if (product.specs.length) parts.push(`Specs:\n${product.specs.map((s) => `- ${s}`).join('\n')}`);
     if (product.description) parts.push(`Description: ${product.description}`);
-    if (product.buyerSummary) parts.push(`What other buyers commonly mention: ${product.buyerSummary}`);
+    if (product.buyerSummary) parts.push(`Amazon's summary of what customers say: ${product.buyerSummary}`);
+    if (product.aspects) parts.push(`Topics customers mention: ${product.aspects}`);
+    if (product.reviews?.length) {
+      parts.push(`Other customers' reviews from the product page:\n${product.reviews
+        .map((r) => `- ${r.rating ? `${r.rating}★ ` : ''}${r.title ? `"${r.title}" ` : ''}${r.body}`).join('\n')}`);
+    }
     return parts.join('\n\n');
   }
 
+  const cleanList = (value, max, len) => (Array.isArray(value) ? value : []).map((item) => String(item || '').trim().slice(0, len)).filter(Boolean).slice(0, max);
+
+  // Research other buyers' experiences, then write interview questions aimed at what they disagree or worry about.
+  // With Gemini this searches the web (Amazon reviews, forums, review sites); otherwise it uses the reviews we imported.
   async function generateQuestions(product) {
-    const result = await ask({
+    const system = `You help shoppers write genuinely useful product reviews. First you work out what real owners of a product praise, complain about, and disagree on. Then you design short interview questions that get a new owner to confirm or contradict those points from their own experience, so their review settles what future buyers are unsure about.`;
+    const task = `Your job:
+1. Find what owners of this exact product commonly praise, commonly complain about, and disagree on (e.g. "some say it runs small, others true to size"), plus any gap between the listing's claims and real use.
+2. Write exactly 4 questions for someone who owns it. Each question should:
+   - target one of those real concerns or disagreements, or a listing claim worth checking ("Several owners say the battery lasts about half the advertised 40 hours. How long does it last for you?")
+   - ask for something observable and specific (numbers, situations, comparisons, how long it held up)
+   - be answerable in a sentence, and offer 2-4 very short tap-to-answer choices that cover the likely answers (e.g. "Runs small", "True to size", "Runs large")
+   - never assume the owner had a problem
+3. Give a 2-5 word lowercase category label for the product.
+
+Return only JSON, no other text:
+{"category": "...", "insights": {"praise": ["up to 3 short phrases"], "complaints": ["up to 3 short phrases"], "debated": ["up to 2 short phrases"]}, "questions": [{"question": "...", "why": "under 12 words: which buyer concern this settles", "placeholder": "a short example answer starting with e.g.", "choices": ["...", "..."]}]}
+Use empty lists for insights you couldn't find. Only report themes you actually found; never invent them.`;
+
+    const run = (search) => ask({
       json: true,
-      temperature: 0.5,
-      system: 'You help shoppers write useful product reviews. You design short interview questions that draw out the concrete, first-hand details future buyers care about most for a specific product.',
-      prompt: `${productBrief(product)}
-
-Write exactly 3 questions for someone who owns this product. Each question should:
-- target a detail buyers of THIS product actually worry about (e.g. sizing accuracy, battery life vs. claims, noise, assembly time, durability after washing, taste, smell, compatibility), using the listing's own claims where useful ("The listing says 40-hour battery — how long does it actually last for you?")
-- ask for something observable and specific (numbers, comparisons, situations), not opinions in general
-- be answerable in one or two sentences
-Also give a 2-5 word lowercase category label for the product.
-
-Return JSON: {"category": "...", "questions": [{"question": "...", "placeholder": "a short example answer, starting with e.g."}]}`
+      search,
+      // Web research is a bonus: don't burn through every model (and the relay allowance) if search fails.
+      maxModels: search ? 2 : undefined,
+      temperature: 0.4,
+      system,
+      prompt: `${productBrief(product)}\n\n${search ? `Search the web for owner reviews and discussions of this exact product${product.asin ? ` (Amazon ASIN ${product.asin})` : ''} before answering: Amazon reviews, Reddit, and review sites.` : 'Use the reviews and details above.'}\n\n${task}`
     });
-    const questions = (result.questions || []).filter((q) => q && q.question).slice(0, 3)
-      .map((q) => ({ question: String(q.question).slice(0, 220), placeholder: String(q.placeholder || '').slice(0, 160) }));
+
+    let result; let researched = false;
+    if (backend() === 'gemini') {
+      try { result = await run(true); researched = true; } catch (error) {
+        if (error.fatal) throw error;
+        onProgress('Web research unavailable right now. Using the product page instead…');
+      }
+    }
+    if (!result) result = await run(false);
+
+    const questions = (result.questions || []).filter((q) => q && q.question).slice(0, 4).map((q) => ({
+      question: String(q.question).slice(0, 240),
+      why: String(q.why || '').slice(0, 100),
+      placeholder: String(q.placeholder || '').slice(0, 160),
+      choices: cleanList(q.choices, 4, 40)
+    }));
     if (!questions.length) throw new Error('No questions came back.');
-    return { category: String(result.category || '').slice(0, 40), questions };
+    const insights = {
+      praise: cleanList(result.insights?.praise, 3, 90),
+      complaints: cleanList(result.insights?.complaints, 3, 90),
+      debated: cleanList(result.insights?.debated, 2, 90)
+    };
+    return { category: String(result.category || '').slice(0, 40), insights, questions, researched };
   }
 
   const LENGTHS = { short: '70-110 words', medium: '150-230 words', long: '260-380 words' };
@@ -197,6 +235,9 @@ Return JSON: {"category": "...", "questions": [{"question": "...", "placeholder"
 
   async function writeReview(product, answers, options) {
     const answerLines = answers.map(({ label, value }) => `- ${label}: ${value}`).join('\n');
+    const insights = product.insights || {};
+    const themes = [['Commonly praised', insights.praise], ['Common complaints', insights.complaints], ['Debated', insights.debated]]
+      .filter(([, list]) => list?.length).map(([label, list]) => `- ${label}: ${list.join('; ')}`).join('\n');
     const structure = options.format === 'pros-cons'
       ? 'After the opening paragraphs, include a short "Pros:" list and a "Cons:" list (use "- " bullets, 2-4 items each, only from what the reviewer said; if they gave no cons, write the honest caveat they did give or omit the Cons list), then a closing paragraph.'
       : 'Write in paragraphs only (no bullet lists or headings), separated by blank lines.';
@@ -216,10 +257,11 @@ What makes it helpful:
 - Give the context a shopper needs to relate: why they bought it, how and how long they've used it, anything they compared it to.
 - Turn vague praise into concrete specifics from the notes (numbers, situations, before/after).
 - State the trade-offs plainly, and say who should and shouldn't buy it.
-- Vary sentence length, and keep the reviewer's own memorable phrases where they're good.`,
+- Vary sentence length, and keep the reviewer's own memorable phrases where they're good.
+- When the reviewer's notes confirm or contradict something other buyers say, make that explicit ("Some reviews mention it runs small; the medium fit me as expected"). That's what makes a review useful. Never present other buyers' experiences as the reviewer's own, and don't bring up themes the reviewer didn't address.`,
       prompt: `${productBrief(product)}
 
-Reviewer's star rating: ${options.rating} out of 5
+${themes ? `What other buyers say (context only):\n${themes}\n\n` : ''}Reviewer's star rating: ${options.rating} out of 5
 
 Reviewer's notes:
 ${answerLines}

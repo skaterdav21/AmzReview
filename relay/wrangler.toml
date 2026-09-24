@@ -5,7 +5,7 @@ main = "worker.js"
 compatibility_date = "2026-09-01"
 
 [vars]
-ALLOWED_ORIGINS = "https://skaterdav21.github.io"
+ALLOWED_ORIGINS = "https://skaterdav21.github.io,https://review-sprint.pages.dev"
 HOURLY_LIMIT = "40"
 
 # Short-burst limit per visitor (10 requests per minute), shared across all Cloudflare locations.
