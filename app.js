@@ -40,6 +40,7 @@ function showProduct(product) {
   if (product.bullets.length) facts.push(`${product.bullets.length} feature highlight${product.bullets.length === 1 ? '' : 's'}`);
   if (product.specs.length) facts.push(`${product.specs.length} specs`);
   if (product.description) facts.push('description');
+  if (product.reviews?.length) facts.push(`${product.reviews.length} customer review${product.reviews.length === 1 ? '' : 's'}`);
   const extras = [product.price, product.rating].filter(Boolean).join(' · ');
   $('detectedMeta').textContent = `${facts.length ? `Found ${facts.join(', ')}.` : 'Product identified.'}${extras ? ` ${extras}.` : ''} Step 2 will ask questions for this ${state.profile.label}.`;
 
@@ -194,14 +195,46 @@ function updateExperienceQuestions() {
   $('bestFor').placeholder = profile.bestFor;
 }
 
+function renderInsights(insights) {
+  const box = $('buyerInsights'); box.replaceChildren();
+  const groups = [['Owners like', insights?.praise, 'praise'], ['Common complaints', insights?.complaints, 'complaint'], ['Owners disagree on', insights?.debated, 'debated']]
+    .filter(([, list]) => list?.length);
+  groups.forEach(([heading, list, kind]) => {
+    const group = document.createElement('div'); group.className = `insight-group ${kind}`;
+    const title = document.createElement('span'); title.textContent = heading;
+    const items = document.createElement('ul');
+    list.forEach((text) => { const li = document.createElement('li'); li.textContent = text; items.append(li); });
+    group.append(title, items); box.append(group);
+  });
+  box.classList.toggle('hidden', !groups.length);
+}
+
 function renderAiQuestions() {
   const list = $('aiQuestionsList'); list.replaceChildren();
   state.aiQuestions.forEach((q, index) => {
     const label = document.createElement('label'); label.className = 'wide-label'; label.htmlFor = `aiq-${index}`; label.textContent = q.question;
+    if (q.why) { const why = document.createElement('small'); why.className = 'question-why'; why.textContent = q.why; label.append(why); }
     const area = document.createElement('textarea'); area.id = `aiq-${index}`; area.className = 'short'; area.placeholder = q.placeholder || 'Optional';
     area.value = q.answer || '';
     area.addEventListener('input', () => { q.answer = area.value; });
-    list.append(label, area);
+    list.append(label);
+    // One tap fills a starting answer; the reviewer can then add detail in their own words.
+    if (q.choices?.length) {
+      const chips = document.createElement('div'); chips.className = 'answer-chips';
+      q.choices.forEach((choice) => {
+        const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'chip'; chip.textContent = choice;
+        chip.addEventListener('click', () => {
+          const current = area.value.trim();
+          area.value = current ? `${current}${/[.!?]$/.test(current) ? '' : '.'} ${choice}` : choice;
+          q.answer = area.value;
+          chips.querySelectorAll('.chip').forEach((other) => other.classList.toggle('is-picked', other === chip));
+          area.focus();
+        });
+        chips.append(chip);
+      });
+      list.append(chips);
+    }
+    list.append(area);
   });
 }
 
@@ -210,14 +243,20 @@ async function maybeLoadAiQuestions() {
   if (!AI.enabled() || !state.product) { box.classList.add('hidden'); return; }
   const key = `${AI.settings.provider}|${state.product.title}`;
   if (state.questionsFor === key) return;
-  state.questionsFor = key; state.aiQuestions = []; renderAiQuestions();
-  box.classList.remove('hidden'); $('aiQuestionsStatus').textContent = 'Writing questions for this product…';
+  state.questionsFor = key; state.aiQuestions = []; renderAiQuestions(); renderInsights(null);
+  const reviewCount = state.product.reviews?.length || 0;
+  box.classList.remove('hidden');
+  $('aiQuestionsStatus').textContent = AI.canLookup()
+    ? 'Reading what other owners say about this product…'
+    : reviewCount ? `Reading ${reviewCount} customer reviews…` : 'Writing questions for this product…';
   try {
     AI.onProgress((note) => { if (state.questionsFor === key) $('aiQuestionsStatus').textContent = note; });
-    const { category, questions } = await AI.generateQuestions(state.product);
+    const { category, insights, questions, researched } = await AI.generateQuestions(state.product);
     if (state.questionsFor !== key) return;
-    state.aiQuestions = questions; renderAiQuestions();
-    $('aiQuestionsStatus').textContent = `Answer any that apply · ${AI.providerName()}`;
+    state.product.insights = insights;
+    state.aiQuestions = questions; renderAiQuestions(); renderInsights(insights);
+    const basis = researched ? 'Based on owner reviews across the web' : reviewCount ? `Based on ${reviewCount} review${reviewCount === 1 ? '' : 's'} from the product page` : 'Based on the product listing';
+    $('aiQuestionsStatus').textContent = `${basis}. Answer any that apply to you.`;
     if (category) $('experienceLead').textContent = `Questions for this ${category}. Short notes are fine: numbers, situations, and comparisons make the review most helpful.`;
   } catch (error) {
     if (state.questionsFor !== key) return;
@@ -381,7 +420,7 @@ function resetForNextReview() {
   Object.assign(state, { product: null, rating: 0, profile: null, aiQuestions: [], questionsFor: '', pastedHtml: '', draftEdited: false });
   $('pageText').value = ''; $('productUrl').value = ''; $('productName').value = ''; setImportStatus('');
   $('productPreview').classList.add('hidden'); $('manualProduct').classList.add('hidden'); $('toQuestions').classList.add('hidden');
-  $('experienceForm').reset(); setRating(0); renderAiQuestions(); $('aiQuestions').classList.add('hidden');
+  $('experienceForm').reset(); setRating(0); renderAiQuestions(); renderInsights(null); $('aiQuestions').classList.add('hidden');
   setStage(1);
 }
 

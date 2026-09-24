@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Review Sprint",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Send the Amazon product you're viewing to Review Sprint with one tap, with title, features, specs, and photo.",
   "icons": {
     "48": "icons/icon-48.png",

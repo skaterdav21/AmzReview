@@ -1,0 +1,58 @@
+# Keeps https://review-sprint.pages.dev and the AI relay in sync with main.
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   token with Workers Scripts: Edit and Cloudflare Pages: Edit
+#   CLOUDFLARE_ACCOUNT_ID  the Cloudflare account ID
+# Without them the workflow skips deployment with a warning instead of failing.
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - name: Check Cloudflare credentials
+        id: creds
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID secrets are not set, so nothing was deployed."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.creds.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.creds.outputs.ready == 'true'
+        with:
+          node-version: 22
+
+      # Secrets (the Gemini key) are kept between deploys; vars come from relay/wrangler.toml.
+      - name: Deploy AI relay Worker
+        if: steps.creds.outputs.ready == 'true'
+        working-directory: relay
+        run: npx --yes wrangler@4 deploy
+
+      - name: Collect site files
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          mkdir _site
+          cp *.html *.js *.css manifest.webmanifest _site/
+          cp -R icons _site/
+
+      - name: Deploy site to Cloudflare Pages
+        if: steps.creds.outputs.ready == 'true'
+        run: npx --yes wrangler@4 pages deploy _site --project-name review-sprint --branch main --commit-hash "${{ github.sha }}" --commit-dirty=true

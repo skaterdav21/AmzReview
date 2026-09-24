@@ -121,3 +121,23 @@ body.light .quick-send summary, body.light .quick-send a { color: #146eb4; }
   .url-row input { grid-column: 1 / -1; }
   .url-row .primary, .url-row .secondary { width: 100%; margin-top: 0 !important; }
 }
+
+/* Buyer insights and tap-to-answer chips */
+.buyer-insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 12px 0 4px; }
+.insight-group { padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, .04); border-left: 3px solid var(--muted); }
+.insight-group.praise { border-left-color: #7bd88f; }
+.insight-group.complaint { border-left-color: #ff9b83; }
+.insight-group.debated { border-left-color: #ffb23d; }
+.insight-group span { font: 500 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.insight-group ul { margin: 6px 0 0; padding-left: 16px; font-size: 12.5px; line-height: 1.5; color: var(--ink); }
+.question-why { display: block; margin-top: 3px; color: var(--muted); font-weight: 400; font-size: 11.5px; }
+.answer-chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 8px 0; }
+.chip { padding: 7px 12px; border: 1px solid var(--line); border-radius: 99px; background: rgba(255, 255, 255, .05); color: var(--ink); font: 500 12.5px var(--sans); cursor: pointer; }
+.chip:hover { border-color: #ff990080; }
+.chip.is-picked { border-color: var(--amazon-orange); background: #ff99001f; }
+body.light .insight-group { background: #fff; }
+body.light .insight-group.praise { border-left-color: #2f9a4a; }
+body.light .insight-group.complaint { border-left-color: #d0512f; }
+body.light .insight-group.debated { border-left-color: #c77700; }
+body.light .chip { border-color: #c8d0d5; background: #fff; color: #111820; }
+body.light .chip.is-picked { background: #fff3df; }
