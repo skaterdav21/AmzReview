@@ -17,6 +17,15 @@ Amazon blocks other websites from reading its pages, so the app offers three rou
 - **Paste page.** Ctrl+A, Ctrl+C on the product page, then paste. Rich-text pastes are parsed using Amazon's page structure, and plain text falls back to line matching.
 - **Use a link.** Tries a public page reader first. If Gemini is turned on, it then looks the product up with Google Search, and as a last resort it uses the product name in the URL.
 
+## Sending products from your phone or Firefox
+
+- **Firefox add-on** (Android and desktop): one tap sends the full product details. See [extension/README.md](extension/README.md#install).
+- **Android share menu:** install the app from Chrome once (⋮ → Add to Home screen). Then **Share → Review Sprint** from Firefox or the Amazon app.
+- **iPhone:** a Shortcut in the share sheet. The steps are in the app under *Use a link*.
+- **Paste** button in *Use a link*. It also accepts Amazon's share text and a.co / amzn.to short links.
+
+Anything can also open the app as `…/AmzReview/?url=<amazon link>&title=<product name>`.
+
 ## Optional free AI writing
 
 Open **AI: off** in the header. The settings panel has step-by-step instructions and a direct link to get a free key for each provider:
@@ -43,5 +52,7 @@ To give everyone AI writing without their own key, deploy the small relay in [`r
 - `extract.js`: product parsing (bookmarklet payload, pasted text/HTML, reader output)
 - `ai.js`: Gemini/Groq clients and prompts
 - `app.js`: UI flow and the built-in (no-AI) draft writer
+- `manifest.webmanifest`, `sw.js`, `icons/`: installable app and share-menu target
+- `extension/`: Firefox add-on
 - `relay/`: optional Cloudflare Worker that shares one AI key safely
 - `styles.css`, `theme.css`, `polish.css`, `features.css`: styling

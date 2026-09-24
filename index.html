@@ -8,6 +8,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#131921" />
+    <link rel="icon" href="icons/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="polish.css" />
@@ -65,7 +69,7 @@
             <li>Open any Amazon product page and click <b>Send to Review Sprint</b> in your bookmarks.</li>
             <li>This app opens with the title, features, specs, and photo already filled in.</li>
           </ol>
-          <p class="field-note">The bookmark reads the page you're already viewing, so Amazon can't block it. It only sends product details to this page. Nothing goes to a server.</p>
+          <p class="field-note">The bookmark reads the page you're already viewing, so Amazon can't block it. It only sends product details to this page. Nothing goes to a server. Using Firefox? The <a href="https://github.com/skaterdav21/AmzReview/tree/main/extension#install" target="_blank" rel="noopener">Review Sprint add-on</a> does the same with a toolbar button.</p>
         </div>
 
         <div id="paste-source" class="source-panel hidden">
@@ -78,11 +82,41 @@
         <div id="link-source" class="source-panel hidden">
           <label for="productUrl">Amazon product link</label>
           <div class="url-row">
-            <input id="productUrl" type="url" inputmode="url" placeholder="https://www.amazon.com/dp/..." />
+            <input id="productUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://www.amazon.com/dp/... or a.co/d/..." />
+            <button class="secondary compact-secondary" id="pasteLink" type="button">Paste</button>
             <button class="primary compact" id="importLink">Import</button>
           </div>
           <p class="field-note" id="linkNote">We try a public page reader first. With Gemini turned on in AI settings, we can also look the product up with Google Search, which works far more often.</p>
           <div class="import-status" id="importStatus" aria-live="polite"></div>
+
+          <details class="quick-send" id="quickSend">
+            <summary>Send products here in one tap from Firefox or the Amazon app</summary>
+            <div class="quick-send-grid">
+              <section>
+                <h4>Android: Share button</h4>
+                <ol>
+                  <li>Open this page once in <b>Chrome</b>, tap <b>⋮ → Add to Home screen → Install</b>. (Chrome is only needed for this step. Firefox can't add apps to the share menu yet.)</li>
+                  <li>From then on, in <b>Firefox</b> or the <b>Amazon app</b>, tap <b>Share</b> on any product and pick <b>Review Sprint</b>.</li>
+                </ol>
+              </section>
+              <section>
+                <h4>Firefox add-on (Android and desktop)</h4>
+                <ol>
+                  <li>Install the <a href="https://github.com/skaterdav21/AmzReview/tree/main/extension#install" target="_blank" rel="noopener">Review Sprint add-on</a>.</li>
+                  <li>On a product page, tap <b>⋮ → Extensions → Send to Review Sprint</b> (toolbar button on desktop).</li>
+                </ol>
+                <p class="field-note">It sends the full details and photo, so it works even when Amazon blocks link imports.</p>
+              </section>
+              <section>
+                <h4>iPhone: Shortcut</h4>
+                <ol>
+                  <li>In the <b>Shortcuts</b> app, make a new shortcut and turn on <b>Show in Share Sheet</b> (accepts URLs and text).</li>
+                  <li>Add <b>URL Encode</b> (Shortcut Input), then <b>Open URLs</b> with: <code class="copyable" id="shortcutUrl"></code></li>
+                  <li>Name it <b>Review Sprint</b>. Tap <b>Share → Review Sprint</b> from Firefox or the Amazon app.</li>
+                </ol>
+              </section>
+            </div>
+          </details>
         </div>
 
         <div class="product-preview hidden" id="productPreview">

@@ -102,3 +102,22 @@ body.light .key-card.is-selected { background: linear-gradient(115deg, #fff8ec, 
 body.light .key-badge { color: #b85f00; }
 body.light .text-button.inline { color: #146eb4; }
 @media (max-width: 520px) { .key-guide { grid-template-columns: 1fr; } }
+
+/* Link import: paste button and one-tap sending guide */
+.secondary.compact-secondary { flex: none; }
+.quick-send { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; background: rgba(255, 255, 255, .03); }
+.quick-send summary { cursor: pointer; color: var(--lime); font-weight: 600; font-size: 13px; }
+.quick-send-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 12px; }
+.quick-send h4 { margin: 0 0 6px; font: 700 13px var(--sans); color: var(--ink); }
+.quick-send ol { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.quick-send li { margin-bottom: 5px; }
+.quick-send a { color: var(--amazon-link); }
+.quick-send code { font: 500 11px var(--mono); color: var(--ink); word-break: break-all; }
+body.light .quick-send { border-color: #d5d9d9; background: #fafbfc; }
+body.light .quick-send summary, body.light .quick-send a { color: #146eb4; }
+@media (max-width: 800px) { .quick-send-grid { grid-template-columns: 1fr; } }
+@media (max-width: 650px) {
+  .url-row { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .url-row input { grid-column: 1 / -1; }
+  .url-row .primary, .url-row .secondary { width: 100%; margin-top: 0 !important; }
+}

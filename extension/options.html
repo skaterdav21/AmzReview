@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body { font: 14px system-ui, sans-serif; margin: 16px; max-width: 520px; }
+      label { display: block; font-weight: 600; margin-bottom: 6px; }
+      input { width: 100%; box-sizing: border-box; padding: 8px; font: inherit; }
+      p { color: #555; }
+      button { margin-top: 10px; padding: 8px 14px; font: inherit; }
+    </style>
+  </head>
+  <body>
+    <label for="appUrl">Review Sprint address</label>
+    <input id="appUrl" type="url" placeholder="https://skaterdav21.github.io/AmzReview/" />
+    <p>Change this if you host the app somewhere else, such as a Cloudflare Pages link.</p>
+    <button id="save" type="button">Save</button> <span id="status"></span>
+    <script src="options.js"></script>
+  </body>
+</html>
