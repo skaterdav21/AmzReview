@@ -93,12 +93,14 @@ function setImportStatus(text, isError = false) {
   $('importStatus').className = `import-status${isError ? ' error' : ''}`;
 }
 
-async function importLink() {
-  const raw = $('productUrl').value.trim();
-  if (!/^https?:\/\//i.test(raw) || !/(amazon\.|amzn\.)/i.test(raw)) { setImportStatus('Please add a full Amazon product link (it should start with https://).', true); return; }
+// hintTitle comes from a share sheet ("Anker Portable Charger…"), the best fallback when Amazon blocks the page.
+async function importLink(hintTitle = '') {
+  const raw = Extract.parseShare({ text: $('productUrl').value }).link || $('productUrl').value.trim();
+  if (!Extract.isAmazonLink(raw)) { setImportStatus('Please add a full Amazon product link (it should start with https://).', true); return; }
+  $('productUrl').value = raw;
   const url = Extract.canonicalUrl(raw) || raw;
   const asin = Extract.asinFromUrl(raw);
-  const slugTitle = Extract.titleFromUrl(raw);
+  const slugTitle = hintTitle || Extract.titleFromUrl(raw);
   $('importLink').disabled = true;
 
   try {
@@ -106,7 +108,9 @@ async function importLink() {
     try {
       const response = await fetch(`https://r.jina.ai/${url}`, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error('Unavailable');
-      const product = Extract.fromText(await response.text(), url);
+      const text = await response.text();
+      if (Extract.isBlockedPage(text)) throw new Error('Blocked');
+      const product = Extract.fromText(text, url);
       if (Extract.hasContent(product) && (product.bullets.length || !slugTitle)) {
         showProduct(product);
         setImportStatus('Product details imported.');
@@ -118,7 +122,7 @@ async function importLink() {
       setImportStatus('Amazon blocked the page reader. Looking the product up with Gemini + Google Search…');
       try {
         AI.onProgress((note) => setImportStatus(note));
-        const found = await AI.lookupProduct(url, asin);
+        const found = await AI.lookupProduct(url, asin, hintTitle);
         showProduct(Extract.merge({ ...found, url, asin }, Extract.emptyProduct()));
         setImportStatus('Found it via search. Check the name matches your product.');
         return;
@@ -127,12 +131,41 @@ async function importLink() {
 
     if (slugTitle) {
       showProduct({ ...Extract.emptyProduct(), title: slugTitle, url, asin });
-      setImportStatus(`Amazon blocked the full import, so we used the name from the link.${AI.canLookup() ? '' : ' Tip: the One-click button or turning on Gemini gets full details.'}`);
+      setImportStatus(`Amazon blocked the full import, so we used the ${hintTitle ? 'shared product name' : 'name from the link'}.${AI.canLookup() ? '' : ' Tip: the Firefox add-on or turning on Gemini gets full details.'}`);
     } else {
       showManualEntry();
-      setImportStatus('Amazon blocked the import and this link has no product name in it. Type the name below, or use the One-click button or Paste page.', true);
+      setImportStatus(`Amazon blocked the import and this link has no product name in it. Type the name below${AI.canLookup() ? '' : ', or turn on Gemini in AI settings so links can be looked up'}.`, true);
     }
   } finally { $('importLink').disabled = false; }
+}
+
+// Share sheets, the iPhone Shortcut, and the Firefox add-on's fallback open the app as ?url=…&title=…&text=…
+function readShareParams() {
+  const params = new URLSearchParams(location.search);
+  if (!['url', 'text', 'title'].some((key) => params.get(key))) return;
+  const shared = Extract.parseShare({ url: params.get('url'), text: params.get('text'), title: params.get('title') });
+  history.replaceState(null, '', location.pathname + location.hash);
+  if (shared.link) {
+    chooseSource('link');
+    $('productUrl').value = shared.link;
+    importLink(shared.title);
+  } else {
+    chooseSource('link');
+    setImportStatus('That share didn’t include an Amazon link. Try sharing from the product page.', true);
+  }
+}
+
+async function pasteLink() {
+  try {
+    const text = await navigator.clipboard.readText();
+    const shared = Extract.parseShare({ text });
+    if (!shared.link) { setImportStatus('Your clipboard doesn’t have an Amazon link in it. Copy the product link first.', true); return; }
+    $('productUrl').value = shared.link;
+    importLink(shared.title);
+  } catch {
+    $('productUrl').focus();
+    setImportStatus('Your browser blocked clipboard access. Long-press the box and choose Paste instead.', true);
+  }
 }
 
 function readImportHash() {
@@ -429,8 +462,9 @@ $('bookmarklet').addEventListener('click', (event) => { event.preventDefault(); 
 document.querySelectorAll('.source-tab').forEach((button) => button.addEventListener('click', () => chooseSource(button.dataset.source)));
 $('pageText').addEventListener('paste', (event) => { state.pastedHtml = event.clipboardData?.getData('text/html') || ''; });
 $('pageText').addEventListener('input', () => { if (!$('pageText').value.trim()) state.pastedHtml = ''; });
-$('analyzePaste').addEventListener('click', analyzePaste); $('importLink').addEventListener('click', importLink);
+$('analyzePaste').addEventListener('click', analyzePaste); $('importLink').addEventListener('click', () => importLink());
 $('productUrl').addEventListener('keydown', (event) => { if (event.key === 'Enter') importLink(); });
+$('pasteLink').addEventListener('click', pasteLink);
 $('toQuestions').addEventListener('click', () => setStage(2));
 $('editProduct').addEventListener('click', () => showManualEntry(state.product?.title || ''));
 $('productName').addEventListener('input', (event) => {
@@ -474,3 +508,6 @@ try { setTheme(localStorage.getItem('review-sprint-theme') || 'dark'); } catch {
 chooseSource(defaultSource());
 refreshAiChip();
 readImportHash();
+readShareParams();
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { /* Offline support is optional. */ });
+$('shortcutUrl').textContent = `${location.href.split(/[?#]/)[0]}?text=[URL Encoded Text]`;

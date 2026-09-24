@@ -3,7 +3,9 @@
 (function () {
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
   const BAD_TITLE = /^(markdown content|content|title|amazon product|product page|untitled|main content|amazon\.com|page not found|robot check|sorry! something went wrong!?)$/i;
-  const isBadTitle = (value) => !value || BAD_TITLE.test(clean(value).replace(/:$/, '')) || /captcha|enter the characters you see/i.test(value);
+  const isBadTitle = (value) => !value || BAD_TITLE.test(clean(value).replace(/^title:\s*/i, '').replace(/:$/, '')) || /captcha|enter the characters you see|robot check/i.test(value);
+  // Amazon answers blocked readers with a bot-check page instead of the product.
+  const isBlockedPage = (text) => /robot check|enter the characters you see below|api-services-support@amazon\.com|to discuss automated access/i.test(text);
 
   function emptyProduct() {
     return { title: '', bullets: [], description: '', specs: [], price: '', rating: '', brand: '', image: '', asin: '', url: '', buyerSummary: '' };
@@ -149,6 +151,20 @@
     return `javascript:${encodeURIComponent(body)}`;
   }
 
+  // Amazon links come in many shapes: amazon.<tld> pages, amzn.to / amzn.eu short links, and a.co app shares.
+  const AMAZON_LINK = /https?:\/\/(?:[\w-]+\.)*(?:amazon\.[a-z.]{2,6}|amzn\.[a-z]{2,3}|a\.co)\/[^\s"'<>]*/i;
+  const isAmazonLink = (value) => AMAZON_LINK.test(String(value || '').trim()) && /^https?:\/\//i.test(String(value || '').trim());
+
+  // Share sheets pass a mix of url, title, and text ("Check out this deal on Amazon: Anker… https://a.co/d/…").
+  function parseShare({ url = '', text = '', title = '' } = {}) {
+    const link = [url, text, title].map((v) => String(v || '').match(AMAZON_LINK)?.[0]).find(Boolean) || '';
+    const candidates = [title, String(text || '').replace(AMAZON_LINK, ' ')].map((value) => stripAmazonSuffix(clean(value)
+      .replace(/^(?:check out this (?:deal|product|item)(?: on amazon)?|check this out(?: on amazon)?|(?:i )?found this on amazon|look what i found on amazon|shared (?:from|via) amazon)\s*[:!-]?\s*/i, '')
+      .replace(/^["“]|["”]$/g, '')));
+    const sharedTitle = candidates.find((value) => value.length >= 8 && !isBadTitle(value) && !/^https?:/i.test(value) && !/^amazon(\.[a-z.]+)?$/i.test(value)) || '';
+    return { link: link.replace(/[).,]+$/, ''), title: sharedTitle };
+  }
+
   function merge(primary, fallback) {
     const out = { ...fallback };
     Object.entries(primary).forEach(([key, value]) => { if (Array.isArray(value) ? value.length : value) out[key] = value; });
@@ -157,5 +173,5 @@
 
   function hasContent(product) { return !isBadTitle(product.title); }
 
-  window.Extract = { clean, isBadTitle, emptyProduct, asinFromUrl, canonicalUrl, titleFromUrl, fromHtml, fromText, fromPayload, bookmarkletSource, merge, hasContent };
+  window.Extract = { clean, isBadTitle, isBlockedPage, emptyProduct, asinFromUrl, canonicalUrl, titleFromUrl, stripAmazonSuffix, isAmazonLink, parseShare, fromHtml, fromText, fromPayload, bookmarkletSource, merge, hasContent };
 })();

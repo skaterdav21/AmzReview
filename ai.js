@@ -237,14 +237,14 @@ Return JSON: {"title": "...", "body": "..."}`
   }
 
   // Search-grounded lookup for links Amazon won't let us read directly (Gemini only).
-  async function lookupProduct(url, asin) {
+  async function lookupProduct(url, asin, hintTitle = '') {
     if (backend() !== 'gemini') throw new Error('Link lookup needs the Gemini provider.');
     const result = await ask({
       json: true,
       search: true,
       temperature: 0.2,
       system: 'You look up Amazon product listings and report their details accurately. Only report details you found; never guess.',
-      prompt: `Find the Amazon product listing at ${url}${asin ? ` (ASIN ${asin})` : ''}.
+      prompt: `Find the Amazon product listing at ${url}${asin ? ` (ASIN ${asin})` : ''}.${hintTitle ? `\nThe person shared it with this title: "${hintTitle}".` : ''}
 Return only JSON, no other text: {"found": true|false, "title": "full product title", "brand": "", "price": "", "bullets": ["up to 6 key feature bullets from the listing"], "description": "one or two sentence description"}
 If you can't identify this exact product, return {"found": false}.`
     });
