@@ -19,7 +19,7 @@ Amazon blocks other websites from reading its pages, so the app offers three rou
 
 ## Optional free AI writing
 
-Open **AI: off** in the header and choose a provider:
+Open **AI: off** in the header. The settings panel has step-by-step instructions and a direct link to get a free key for each provider:
 
 | Provider | Free key | Notes |
 | --- | --- | --- |

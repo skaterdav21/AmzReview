@@ -83,3 +83,22 @@ body.light .settings-status { color: #2f7d0e; }
   .secondary { width: 100%; }
   .ai-chip { padding: 8px 10px; font-size: 11px; }
 }
+
+/* Free API key guide in AI settings */
+.key-guide-title { margin: 18px 0 10px; font-weight: 600; font-size: 14px; }
+.key-guide { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.key-card { display: flex; flex-direction: column; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .03); cursor: pointer; transition: border-color .15s; }
+.key-card:hover { border-color: #ff990066; }
+.key-card.is-selected { border-color: var(--amazon-orange); background: linear-gradient(120deg, #ff99001a, #146eb412); }
+.key-card-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.key-badge { padding: 2px 7px; border-radius: 99px; background: #ff99002a; color: #ffb23d; font: 500 10px var(--mono); }
+.key-badge.muted { background: rgba(255, 255, 255, .07); color: var(--muted); }
+.key-card ol { flex: 1; margin: 10px 0 12px; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.key-card code { font: 500 11px var(--mono); color: var(--ink); }
+.settings .key-link { align-self: flex-start; padding: 7px 11px; border-radius: 8px; background: linear-gradient(135deg, #ffb72c, #ff9900); color: #131921; font: 700 12px var(--sans); text-decoration: none; }
+.text-button.inline { margin: 0; font-size: inherit; }
+body.light .key-card { border-color: #d5d9d9; background: #fafbfc; }
+body.light .key-card.is-selected { background: linear-gradient(115deg, #fff8ec, #f1f7fc); }
+body.light .key-badge { color: #b85f00; }
+body.light .text-button.inline { color: #146eb4; }
+@media (max-width: 520px) { .key-guide { grid-template-columns: 1fr; } }

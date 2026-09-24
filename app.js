@@ -291,7 +291,11 @@ async function buildDraft() {
   if (!AI.enabled()) {
     setDraft(templateReview(options));
     $('engineChip').textContent = 'Built-in template';
-    setDraftStatus('Tip: turn on free AI writing (top right) for a fuller, more natural review.');
+    setDraftStatus('Tip: for a fuller, more natural review, ');
+    const setup = document.createElement('button');
+    setup.type = 'button'; setup.className = 'text-button inline'; setup.textContent = 'set up free AI writing (takes a minute)';
+    setup.addEventListener('click', openAiSettings);
+    $('draftStatus').append(setup, '.');
     return;
   }
 
@@ -357,11 +361,24 @@ function refreshAiChip() {
 
 function syncProviderFields() {
   const provider = AI.PROVIDERS[$('aiProvider').value];
+  document.querySelectorAll('.key-card').forEach((card) => card.classList.toggle('is-selected', card.dataset.provider === $('aiProvider').value));
   $('aiKeyFields').classList.toggle('hidden', !provider);
   if (!provider) return;
   $('providerNote').textContent = provider.note;
   $('aiKeyLink').href = provider.keyUrl;
   $('aiModel').placeholder = `Default: ${provider.defaultModel}`;
+}
+
+function selectProvider(name) {
+  $('aiProvider').value = name;
+  syncProviderFields();
+}
+
+// Keys have recognizable prefixes, so a pasted key can pick its own provider.
+function detectProviderFromKey() {
+  const key = $('aiKey').value.trim();
+  const match = /^AIza/.test(key) ? 'gemini' : /^gsk_/.test(key) ? 'groq' : '';
+  if (match && match !== $('aiProvider').value) selectProvider(match);
 }
 
 function openAiSettings() {
@@ -431,6 +448,11 @@ $('anotherProduct').addEventListener('click', () => { resetForNextReview(); choo
 $('themeToggle').addEventListener('click', () => setTheme(document.body.classList.contains('light') ? 'dark' : 'light'));
 $('openAiSettings').addEventListener('click', openAiSettings);
 $('aiProvider').addEventListener('change', syncProviderFields);
+$('aiKey').addEventListener('input', detectProviderFromKey);
+document.querySelectorAll('.key-card').forEach((card) => card.addEventListener('click', () => {
+  selectProvider(card.dataset.provider);
+  if (!$('aiKey').value.trim()) $('aiKey').focus({ preventScroll: true });
+}));
 $('aiSettingsForm').addEventListener('submit', saveAiSettings);
 $('aiTest').addEventListener('click', testAi);
 $('aiSettings').addEventListener('click', (event) => { if (event.target === $('aiSettings')) $('aiSettings').close(); });

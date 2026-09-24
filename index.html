@@ -198,6 +198,27 @@
         <p class="eyebrow">OPTIONAL</p>
         <h2 id="aiSettingsTitle">AI writing</h2>
         <p class="settings-lede">Without AI, the app builds a structured draft from your answers. With a free AI key it also asks questions specific to your product and writes a fuller, more natural review. Your key is saved only in this browser and sent only to the provider you pick.</p>
+        <p class="key-guide-title">Get a free API key <span class="soft">(about 1 minute, no credit card)</span></p>
+        <div class="key-guide">
+          <div class="key-card" data-provider="gemini">
+            <div class="key-card-head"><strong>Google Gemini</strong><span class="key-badge">Recommended</span></div>
+            <ol>
+              <li>Sign in with your Google account.</li>
+              <li>Click <b>Create API key</b>. Pick any project if it asks.</li>
+              <li>Copy the key (starts with <code>AIza</code>) and paste it below.</li>
+            </ol>
+            <a class="key-link" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Open Google AI Studio ↗</a>
+          </div>
+          <div class="key-card" data-provider="groq">
+            <div class="key-card-head"><strong>Groq</strong><span class="key-badge muted">Fast</span></div>
+            <ol>
+              <li>Sign up with Google, GitHub, or email.</li>
+              <li>Open <b>API Keys</b> and click <b>Create API Key</b>.</li>
+              <li>Copy the key (starts with <code>gsk_</code>). It's only shown once.</li>
+            </ol>
+            <a class="key-link" href="https://console.groq.com/keys" target="_blank" rel="noopener">Open Groq Console ↗</a>
+          </div>
+        </div>
         <label>Provider
           <select id="aiProvider">
             <option value="none">Off (built-in template)</option>
@@ -210,7 +231,7 @@
           <label>API key
             <input id="aiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key" />
           </label>
-          <p class="field-note">Don't have one? <a id="aiKeyLink" href="#" target="_blank" rel="noopener">Get a free key here</a>. Sign in, click “Create API key,” and paste it above.</p>
+          <p class="field-note">Don't have one yet? <a id="aiKeyLink" href="#" target="_blank" rel="noopener">Get a free key</a>. Pasting a key picks the matching provider automatically.</p>
           <label>Model <span class="soft">Optional</span>
             <input id="aiModel" type="text" autocomplete="off" spellcheck="false" />
           </label>
