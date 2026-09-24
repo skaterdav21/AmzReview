@@ -36,13 +36,11 @@ Visitors now see **AI: on** automatically. Anyone can still turn it off, or use 
 
 ## One-command deploy (Wrangler)
 
-[`scripts/deploy-cloudflare.sh`](../scripts/deploy-cloudflare.sh) does everything above, and also publishes the site on Cloudflare Pages at a link without your GitHub name (for example `https://review-sprint.pages.dev`). It needs these environment variables:
+[`scripts/deploy-cloudflare.sh`](../scripts/deploy-cloudflare.sh) does everything above, and also publishes the site on Cloudflare Pages at a link without your GitHub name (for example `https://review-sprint.pages.dev`).
 
-- `CLOUDFLARE_API_TOKEN`: create it at <https://dash.cloudflare.com/profile/api-tokens> from the **Edit Cloudflare Workers** template, then add the permission **Account → Cloudflare Pages → Edit**. Limit it to your account.
-- `CLOUDFLARE_ACCOUNT_ID`: shown in the right sidebar of any Workers & Pages page.
-- `GEMINI_API_KEY` (optional): stored as the relay's secret. Leave it out to add it in the dashboard instead.
-
-Then run `bash scripts/deploy-cloudflare.sh` and commit the updated `config.js`.
+1. Sign in once with `npx wrangler login`. Add `--browser=false` to get a link you can open in any browser. Alternatively, set `CLOUDFLARE_API_TOKEN` (and `CLOUDFLARE_ACCOUNT_ID`) in the terminal instead.
+2. Run `bash scripts/deploy-cloudflare.sh` from the repo folder. It asks for the Gemini key with hidden input and stores it as a Worker secret. Press Enter to skip it, or set `GEMINI_API_KEY` beforehand.
+3. It prints the **Site** and **Relay** addresses. Commit the updated `config.js` so GitHub Pages uses the relay too.
 
 ## Using Groq instead of (or as well as) Gemini
 
