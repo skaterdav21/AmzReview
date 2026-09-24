@@ -117,6 +117,7 @@ async function importLink() {
     if (AI.canLookup()) {
       setImportStatus('Amazon blocked the page reader. Looking the product up with Gemini + Google Search…');
       try {
+        AI.onProgress((note) => setImportStatus(note));
         const found = await AI.lookupProduct(url, asin);
         showProduct(Extract.merge({ ...found, url, asin }, Extract.emptyProduct()));
         setImportStatus('Found it via search. Check the name matches your product.');
@@ -179,6 +180,7 @@ async function maybeLoadAiQuestions() {
   state.questionsFor = key; state.aiQuestions = []; renderAiQuestions();
   box.classList.remove('hidden'); $('aiQuestionsStatus').textContent = 'Writing questions for this product…';
   try {
+    AI.onProgress((note) => { if (state.questionsFor === key) $('aiQuestionsStatus').textContent = note; });
     const { category, questions } = await AI.generateQuestions(state.product);
     if (state.questionsFor !== key) return;
     state.aiQuestions = questions; renderAiQuestions();
@@ -305,8 +307,9 @@ async function buildDraft() {
   $('engineChip').textContent = `Writing with ${AI.providerName()}…`;
   setDraftStatus('Writing your review. This usually takes a few seconds…');
   try {
+    AI.onProgress((note) => setDraftStatus(note));
     setDraft(await AI.writeReview(state.product, collectAnswers(), options));
-    $('engineChip').textContent = `Written with ${AI.providerName()}`;
+    $('engineChip').textContent = `Written with ${AI.modelFor()}`;
     setDraftStatus('Check every detail is true for you, and edit anything that doesn’t sound like you.');
   } catch (error) {
     setDraft(templateReview(options));
@@ -366,7 +369,7 @@ function syncProviderFields() {
   if (!provider) return;
   $('providerNote').textContent = provider.note;
   $('aiKeyLink').href = provider.keyUrl;
-  $('aiModel').placeholder = `Default: ${provider.defaultModel}`;
+  $('aiModel').placeholder = `Automatic: ${provider.models[0]}, then others if busy`;
 }
 
 function selectProvider(name) {
@@ -402,6 +405,7 @@ async function testAi() {
   const status = $('aiTestStatus');
   if (!AI.enabled()) { status.textContent = 'Choose a provider and paste a key first.'; status.className = 'settings-status error'; return; }
   status.textContent = 'Testing…'; status.className = 'settings-status';
+  AI.onProgress((note) => { status.textContent = note; });
   try { await AI.testConnection(); status.textContent = `Connected to ${AI.providerName()} (${AI.modelFor()}).`; } catch (error) { status.textContent = error.message; status.className = 'settings-status error'; }
 }
 

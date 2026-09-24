@@ -23,8 +23,10 @@ Open **AI: off** in the header. The settings panel has step-by-step instructions
 
 | Provider | Free key | Notes |
 | --- | --- | --- |
-| Google Gemini (recommended) | https://aistudio.google.com/app/apikey | Free tier, no card. Also powers link lookups via Google Search. Default model `gemini-flash-latest`. |
-| Groq | https://console.groq.com/keys | Free tier, no card, very fast open models. Default model `llama-3.3-70b-versatile`. |
+| Google Gemini (recommended) | https://aistudio.google.com/app/apikey | Free tier, no card. Also powers link lookups via Google Search. |
+| Groq | https://console.groq.com/keys | Free tier, no card, very fast open models. |
+
+Free models are sometimes overloaded (Gemini answers "experiencing high demand") or hit a per-model daily limit. The app retries once and then falls back automatically: Gemini tries `gemini-flash-latest`, `gemini-2.5-flash`, `gemini-flash-lite-latest`, then `gemini-2.5-flash-lite`; Groq tries `llama-3.3-70b-versatile`, `openai/gpt-oss-120b`, then `llama-3.1-8b-instant`. A model typed into the Model field is tried first.
 
 With AI on, Step 2 adds three questions written for the specific product (for example, checking a listing's battery claim), and Step 3 writes the review from your answers with tone, length, and pros/cons controls. The prompt forbids inventing experiences: only your answers become claims, and the listing is used just to name features correctly.
 

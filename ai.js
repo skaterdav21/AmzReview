@@ -3,16 +3,18 @@
 (function () {
   const STORAGE_KEY = 'review-sprint-ai';
 
+  // Each provider tries its models in order. Free tiers often answer "high demand" (503) or hit a
+  // per-model quota (429) on one model while the others are fine, so we fall through the list.
   const PROVIDERS = {
     gemini: {
       name: 'Google Gemini',
-      defaultModel: 'gemini-flash-latest',
+      models: ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'],
       keyUrl: 'https://aistudio.google.com/app/apikey',
       note: 'Free tier with no credit card. Can also look up products from a link using Google Search.'
     },
     groq: {
       name: 'Groq',
-      defaultModel: 'llama-3.3-70b-versatile',
+      models: ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'llama-3.1-8b-instant'],
       keyUrl: 'https://console.groq.com/keys',
       note: 'Free tier with no credit card. Runs open models (Llama, GPT-OSS) and is very fast.'
     }
@@ -29,19 +31,46 @@
   }
 
   let settings = loadSettings();
+  let lastWorkingModel = '';
+  let onProgress = () => {};
   const enabled = () => settings.provider !== 'none' && PROVIDERS[settings.provider] && settings.key.trim().length > 10;
-  const modelFor = () => settings.model.trim() || PROVIDERS[settings.provider]?.defaultModel;
+  const modelFor = () => lastWorkingModel || settings.model.trim() || PROVIDERS[settings.provider]?.models[0];
 
-  async function readError(response) {
-    let detail = '';
-    try { const body = await response.json(); detail = body.error?.message || body.message || ''; } catch { /* Non-JSON error body. */ }
-    if (response.status === 401 || response.status === 403 || /api key/i.test(detail)) return 'The AI key was rejected. Check it in AI settings.';
-    if (response.status === 429) return 'The free-tier rate limit was reached. Wait a minute and try again.';
-    if (response.status === 404) return `Model "${modelFor()}" was not found. Clear the model field in AI settings to use the default.`;
-    return detail ? `AI error: ${detail.slice(0, 180)}` : `AI request failed (${response.status}).`;
+  // A chosen model goes first; the model that last worked is tried before the rest of the defaults.
+  function modelsToTry() {
+    const order = [settings.model.trim(), lastWorkingModel, ...(PROVIDERS[settings.provider]?.models || [])].filter(Boolean);
+    return [...new Set(order)];
   }
 
-  async function callGemini({ system, prompt, json, search, temperature }) {
+  class AiError extends Error {
+    constructor(message, { status = 0, detail = '', fatal = false } = {}) { super(message); this.status = status; this.detail = detail; this.fatal = fatal; }
+  }
+  const isBusy = (error) => error.status === 503 || error.status === 500 || error.status === 502 || error.status === 504 || /overloaded|high demand|unavailable/i.test(error.detail);
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  async function readError(response, model) {
+    let detail = '';
+    try { const body = await response.json(); detail = body.error?.message || body.message || ''; } catch { /* Non-JSON error body. */ }
+    if (response.status === 401 || response.status === 403 || /api key/i.test(detail)) {
+      return new AiError('The AI key was rejected. Check it in AI settings.', { status: response.status, detail, fatal: true });
+    }
+    if (response.status === 429) return new AiError(`The free-tier limit was reached for ${model}.`, { status: 429, detail });
+    if (response.status === 404) return new AiError(`Model "${model}" isn't available.`, { status: 404, detail });
+    return new AiError(detail ? `AI error: ${detail.slice(0, 180)}` : `AI request failed (${response.status}).`, { status: response.status, detail });
+  }
+
+  async function post(url, headers, body, model) {
+    let response;
+    try {
+      response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
+    } catch (error) {
+      throw new AiError(error.name === 'TimeoutError' ? `${model} took too long to answer.` : 'Could not reach the AI service. Check your connection.', { status: 0, detail: 'unavailable' });
+    }
+    if (!response.ok) throw await readError(response, model);
+    return response.json();
+  }
+
+  async function callGemini(model, { system, prompt, json, search, temperature }) {
     const body = {
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -50,33 +79,46 @@
     // Structured JSON output and the search tool can't be combined, so search replies are parsed loosely.
     if (json && !search) body.generationConfig.responseMimeType = 'application/json';
     if (search) body.tools = [{ google_search: {} }];
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelFor())}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': settings.key.trim() },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60000)
-    });
-    if (!response.ok) throw new Error(await readError(response));
-    const data = await response.json();
+    const data = await post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { 'x-goog-api-key': settings.key.trim() }, body, model);
     const text = (data.candidates?.[0]?.content?.parts || []).map((part) => part.text || '').join('');
-    if (!text) throw new Error(data.promptFeedback?.blockReason ? `The AI declined this request (${data.promptFeedback.blockReason}).` : 'The AI returned an empty reply.');
+    if (!text) throw new AiError(data.promptFeedback?.blockReason ? `The AI declined this request (${data.promptFeedback.blockReason}).` : 'The AI returned an empty reply.', { fatal: Boolean(data.promptFeedback?.blockReason) });
     return text;
   }
 
-  async function callGroq({ system, prompt, json, temperature }) {
-    const body = { model: modelFor(), temperature, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] };
+  async function callGroq(model, { system, prompt, json, temperature }) {
+    const body = { model, temperature, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] };
     if (json) body.response_format = { type: 'json_object' };
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.key.trim()}` },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60000)
-    });
-    if (!response.ok) throw new Error(await readError(response));
-    const data = await response.json();
+    const data = await post('https://api.groq.com/openai/v1/chat/completions', { Authorization: `Bearer ${settings.key.trim()}` }, body, model);
     const text = data.choices?.[0]?.message?.content || '';
-    if (!text) throw new Error('The AI returned an empty reply.');
+    if (!text) throw new AiError('The AI returned an empty reply.');
     return text;
+  }
+
+  // Tries each model in turn; a busy model gets one short retry before moving on.
+  async function callWithFallback(options) {
+    const call = settings.provider === 'gemini' ? callGemini : callGroq;
+    const models = modelsToTry();
+    let lastError;
+    for (const [index, model] of models.entries()) {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const text = await call(model, options);
+          lastWorkingModel = model;
+          return text;
+        } catch (error) {
+          if (error.fatal) throw error;
+          lastError = error;
+          if (!(isBusy(error) && attempt === 0)) break;
+          onProgress(`${model} is busy. Retrying…`);
+          await sleep(1500);
+        }
+      }
+      if (index < models.length - 1) onProgress(`${model} is unavailable right now. Trying ${models[index + 1]}…`);
+    }
+    const everyModelBusy = lastError && (isBusy(lastError) || lastError.status === 429);
+    throw new AiError(everyModelBusy
+      ? `Every free ${PROVIDERS[settings.provider].name} model is overloaded or rate-limited right now. That's on the provider's side. Wait a minute and try again, or switch provider in AI settings.`
+      : lastError?.message || 'The AI request failed.');
   }
 
   function parseJson(text) {
@@ -89,8 +131,7 @@
 
   async function ask(options) {
     if (!enabled()) throw new Error('AI is not set up.');
-    const call = settings.provider === 'gemini' ? callGemini : callGroq;
-    const text = await call({ temperature: 0.7, ...options });
+    const text = await callWithFallback({ temperature: 0.7, ...options });
     return options.json ? parseJson(text) : text;
   }
 
@@ -205,9 +246,10 @@ If you can't identify this exact product, return {"found": false}.`
   window.AI = {
     PROVIDERS,
     get settings() { return { ...settings }; },
-    update(next) { settings = { ...settings, ...next }; saveSettings(settings); },
+    update(next) { settings = { ...settings, ...next }; lastWorkingModel = ''; saveSettings(settings); },
     enabled,
     modelFor,
+    onProgress(listener) { onProgress = typeof listener === 'function' ? listener : () => {}; },
     providerName: () => PROVIDERS[settings.provider]?.name || '',
     canLookup: () => enabled() && settings.provider === 'gemini',
     generateQuestions,
