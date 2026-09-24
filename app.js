@@ -355,7 +355,7 @@ function resetForNextReview() {
 // ---------- AI settings ----------
 function refreshAiChip() {
   const on = AI.enabled();
-  $('aiChipText').textContent = on ? `AI: ${AI.providerName()}` : 'AI: off';
+  $('aiChipText').textContent = !on ? 'AI: off' : AI.isShared() ? 'AI: on' : `AI: ${AI.providerName()}`;
   $('openAiSettings').classList.toggle('is-on', on);
   $('linkNote').textContent = AI.canLookup()
     ? 'We try a public page reader first, then look the product up with Gemini + Google Search if Amazon blocks it.'
@@ -364,6 +364,7 @@ function refreshAiChip() {
 
 function syncProviderFields() {
   const provider = AI.PROVIDERS[$('aiProvider').value];
+  $('sharedNote').classList.toggle('hidden', $('aiProvider').value !== 'shared');
   document.querySelectorAll('.key-card').forEach((card) => card.classList.toggle('is-selected', card.dataset.provider === $('aiProvider').value));
   $('aiKeyFields').classList.toggle('hidden', !provider);
   if (!provider) return;
@@ -395,7 +396,8 @@ function openAiSettings() {
 function saveAiSettings() {
   const provider = $('aiProvider').value;
   const changedProvider = provider !== AI.settings.provider;
-  AI.update({ provider, key: $('aiKey').value.trim(), model: changedProvider && !$('aiModel').value.trim() ? '' : $('aiModel').value.trim() });
+  // Remember a deliberate "Off" so the site's shared AI doesn't switch itself back on next visit.
+  AI.update({ provider, key: $('aiKey').value.trim(), model: changedProvider && !$('aiModel').value.trim() ? '' : $('aiModel').value.trim(), chosenOff: provider === 'none' });
   state.questionsFor = '';
   refreshAiChip();
 }
@@ -418,6 +420,10 @@ function setTheme(mode) {
 }
 
 // ---------- Wiring ----------
+if (AI.hasRelay) {
+  const shared = new Option('Free AI from this site (no key needed)', 'shared');
+  $('aiProvider').prepend(shared);
+}
 $('bookmarklet').href = Extract.bookmarkletSource(location.href.split('#')[0]);
 $('bookmarklet').addEventListener('click', (event) => { event.preventDefault(); $('bookmarklet').classList.add('wiggle'); setTimeout(() => $('bookmarklet').classList.remove('wiggle'), 600); });
 document.querySelectorAll('.source-tab').forEach((button) => button.addEventListener('click', () => chooseSource(button.dataset.source)));

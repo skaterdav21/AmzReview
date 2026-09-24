@@ -32,10 +32,16 @@ With AI on, Step 2 adds three questions written for the specific product (for ex
 
 The key is stored only in your browser's localStorage and is sent directly to the provider you chose. Free tiers may use prompts to improve their models. Without a key, the app still builds a structured draft from your answers.
 
+## Free AI for every visitor
+
+To give everyone AI writing without their own key, deploy the small relay in [`relay/`](relay/README.md) on Cloudflare's free plan and put its URL in `config.js`. Your key stays a secret on Cloudflare, and the relay limits each visitor's requests. Setup takes about 10 minutes; see [relay/README.md](relay/README.md).
+
 ## Files
 
 - `index.html`: page structure
+- `config.js`: site-wide settings (the shared AI relay URL)
 - `extract.js`: product parsing (bookmarklet payload, pasted text/HTML, reader output)
 - `ai.js`: Gemini/Groq clients and prompts
 - `app.js`: UI flow and the built-in (no-AI) draft writer
+- `relay/`: optional Cloudflare Worker that shares one AI key safely
 - `styles.css`, `theme.css`, `polish.css`, `features.css`: styling
