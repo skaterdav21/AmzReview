@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Turn your Amazon product notes into an honest, copy-ready review draft." />
+    <meta name="description" content="Turn your real experience with an Amazon product into a detailed, genuinely helpful review." />
     <title>Review Sprint | Amazon review drafts</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -11,13 +11,14 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="polish.css" />
+    <link rel="stylesheet" href="features.css" />
   </head>
   <body>
     <main class="shell">
       <header class="topbar">
         <a class="brand" href="#top" aria-label="Review Sprint home"><span class="brand-mark">R</span> REVIEW SPRINT</a>
         <div class="header-actions">
-          <div class="status"><span></span> private, in your browser</div>
+          <button class="ai-chip" id="openAiSettings" type="button"><span class="ai-dot"></span><span id="aiChipText">AI: off</span></button>
           <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light mode" aria-pressed="false"><span class="theme-icon">☼</span><span id="themeText">Light</span></button>
         </div>
       </header>
@@ -26,7 +27,7 @@
         <div>
           <p class="eyebrow">HONEST REVIEW DRAFTS, FAST</p>
           <h1>From product page<br />to your own words.</h1>
-          <p class="lede">Bring the product details, answer a handful of questions, and get a natural review draft ready to copy.</p>
+          <p class="lede">Bring in the product with one click, answer questions tailored to it, and get a detailed review that helps the next buyer decide.</p>
         </div>
         <aside class="promise">
           <span class="spark">✦</span>
@@ -45,36 +46,57 @@
         <div class="stage-heading">
           <p class="eyebrow">STEP 01</p>
           <h2 id="product-heading">Bring in the product</h2>
-          <p>Paste the page for the best result. A link can also pull in available public page text.</p>
+          <p>Pick whichever method works on your device. The one-click button is the most reliable on a computer.</p>
         </div>
 
         <div class="source-tabs" role="tablist" aria-label="Product source">
-          <button class="source-tab is-selected" data-source="paste" role="tab" aria-selected="true">Paste page</button>
+          <button class="source-tab" data-source="button" role="tab" aria-selected="false">One-click button</button>
+          <button class="source-tab" data-source="paste" role="tab" aria-selected="false">Paste page</button>
           <button class="source-tab" data-source="link" role="tab" aria-selected="false">Use a link</button>
         </div>
 
-        <div id="paste-source" class="source-panel">
+        <div id="button-source" class="source-panel hidden">
+          <div class="bookmarklet-row">
+            <a class="bookmarklet" id="bookmarklet" href="#" title="Drag me to your bookmarks bar">★ Send to Review Sprint</a>
+            <span class="drag-hint">← drag this to your bookmarks bar</span>
+          </div>
+          <ol class="how-to">
+            <li><b>One-time setup:</b> drag the orange button to your bookmarks bar. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> (<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> on Mac) if the bar is hidden.</li>
+            <li>Open any Amazon product page and click <b>Send to Review Sprint</b> in your bookmarks.</li>
+            <li>This app opens with the title, features, specs, and photo already filled in.</li>
+          </ol>
+          <p class="field-note">The bookmark reads the page you're already viewing, so Amazon can't block it. It only sends product details to this page. Nothing goes to a server.</p>
+        </div>
+
+        <div id="paste-source" class="source-panel hidden">
           <label for="pageText">Amazon page text</label>
-          <textarea id="pageText" spellcheck="false" placeholder="Click on the Amazon product page, press Ctrl+A, Ctrl+C, then paste here…"></textarea>
-          <p class="field-note">We’ll look for a product title, features, and description. Nothing is uploaded or saved.</p>
+          <textarea id="pageText" spellcheck="false" placeholder="On the Amazon product page press Ctrl+A (⌘+A), then Ctrl+C (⌘+C), then paste here…"></textarea>
+          <p class="field-note">We pick out the title, feature bullets, description, and specs. Nothing is uploaded or saved.</p>
           <button class="primary" id="analyzePaste">Analyze pasted page <span>→</span></button>
         </div>
 
         <div id="link-source" class="source-panel hidden">
           <label for="productUrl">Amazon product link</label>
           <div class="url-row">
-            <input id="productUrl" type="url" placeholder="https://www.amazon.com/dp/..." />
+            <input id="productUrl" type="url" inputmode="url" placeholder="https://www.amazon.com/dp/..." />
             <button class="primary compact" id="importLink">Import</button>
           </div>
-          <p class="field-note">We’ll try a read-only page importer. If Amazon blocks it, paste the page text instead. This always works.</p>
+          <p class="field-note" id="linkNote">We try a public page reader first. With Gemini turned on in AI settings, we can also look the product up with Google Search, which works far more often.</p>
           <div class="import-status" id="importStatus" aria-live="polite"></div>
         </div>
 
         <div class="product-preview hidden" id="productPreview">
-          <span class="preview-label">PRODUCT FOUND</span>
-          <h3 id="detectedTitle">Product title</h3>
-          <p id="detectedMeta">Details ready to use</p>
-          <button class="text-button" id="editProduct">Edit product name</button>
+          <img class="product-image hidden" id="productImage" alt="" referrerpolicy="no-referrer" />
+          <div class="product-info">
+            <span class="preview-label">PRODUCT FOUND</span>
+            <h3 id="detectedTitle">Product title</h3>
+            <p id="detectedMeta">Details ready to use</p>
+            <details class="highlights hidden" id="highlightsBox">
+              <summary>View imported details</summary>
+              <ul id="highlightsList"></ul>
+            </details>
+            <button class="text-button" id="editProduct">Edit product name</button>
+          </div>
         </div>
         <div class="manual-product hidden" id="manualProduct">
           <label for="productName">Product name</label>
@@ -89,7 +111,7 @@
         <div class="stage-heading">
           <p class="eyebrow">STEP 02</p>
           <h2 id="experience-heading">What was it like?</h2>
-          <p id="experienceLead">Specific details make the draft useful and credible.</p>
+          <p id="experienceLead">Specific details make the review useful and credible. Short notes are fine. The draft turns them into full sentences.</p>
         </div>
         <form id="experienceForm">
           <div class="product-lens" id="productLens"><span>PRODUCT LENS</span><p id="productLensText">We’ll tailor these questions once the product is analyzed.</p></div>
@@ -97,42 +119,72 @@
             <fieldset class="rating-set">
               <legend>Your rating</legend>
               <div class="rating-control" aria-label="Choose a rating">
-                <button type="button" class="star" data-rating="1">★</button><button type="button" class="star" data-rating="2">★</button><button type="button" class="star" data-rating="3">★</button><button type="button" class="star" data-rating="4">★</button><button type="button" class="star" data-rating="5">★</button>
+                <button type="button" class="star" data-rating="1" aria-label="1 star">★</button><button type="button" class="star" data-rating="2" aria-label="2 stars">★</button><button type="button" class="star" data-rating="3" aria-label="3 stars">★</button><button type="button" class="star" data-rating="4" aria-label="4 stars">★</button><button type="button" class="star" data-rating="5" aria-label="5 stars">★</button>
                 <span id="ratingLabel">Choose 1–5</span>
               </div>
             </fieldset>
             <label>How long have you used it?
-              <select id="useTime"><option value="a few days">A few days</option><option value="a couple of weeks" selected>A couple of weeks</option><option value="a few months">A few months</option><option value="a long time">A long time</option></select>
+              <select id="useTime"><option value="a few days">A few days</option><option value="about a week">About a week</option><option value="a couple of weeks" selected>A couple of weeks</option><option value="about a month">About a month</option><option value="a few months">A few months</option><option value="over a year">Over a year</option></select>
             </label>
-            <label>Who is it best for?
-              <input id="bestFor" type="text" placeholder="e.g. busy parents, small desks" />
+            <label>Value for the price?
+              <select id="value"><option value="">Skip</option><option value="great value">Great value</option><option value="fair for what you get">Fair for what you get</option><option value="pricey but worth it">Pricey, but worth it</option><option value="overpriced">Overpriced</option></select>
             </label>
             <label>Would you recommend it?
               <select id="recommend"><option value="yes">Yes</option><option value="with a small caveat">With a small caveat</option><option value="only for the right person">Only for the right person</option><option value="not really">Not really</option></select>
             </label>
           </div>
+
+          <label class="wide-label" for="whyBought">Why did you buy it, and what do you use it for?</label>
+          <textarea id="whyBought" class="short" placeholder="e.g. Replaced a cheaper one that broke. I use it daily for my commute."></textarea>
           <label class="wide-label" id="specificLabel" for="productSpecific">What happened when you used it?</label>
           <textarea id="productSpecific" placeholder="Describe the real result, fit, setup, or performance you noticed…"></textarea>
+
+          <div class="ai-questions hidden" id="aiQuestions" aria-live="polite">
+            <div class="ai-questions-head"><span class="preview-label">QUESTIONS FOR THIS PRODUCT</span><span class="ai-questions-status" id="aiQuestionsStatus"></span></div>
+            <div id="aiQuestionsList"></div>
+          </div>
+
           <label class="wide-label" id="likedLabel" for="liked">What did you genuinely like?</label>
           <textarea id="liked" placeholder="Mention the feature, result, or moment that stood out…"></textarea>
           <label class="wide-label" id="caveatLabel" for="caveat">Anything a buyer should know? <span>Optional, but helpful</span></label>
           <textarea id="caveat" placeholder="A limitation, setup note, or comparison point…"></textarea>
-          <p class="form-warning">Only submit reviews that reflect your own genuine use and opinion.</p>
-          <div class="stage-actions split"><button class="back" type="button" data-back="1">← Back</button><button class="primary" type="submit">Create review draft <span>→</span></button></div>
+          <div class="form-grid two-up">
+            <label>Compared to anything else? <span class="soft">Optional</span>
+              <input id="compared" type="text" placeholder="e.g. my old Brand X, the pricier model" />
+            </label>
+            <label>Who is it best for?
+              <input id="bestFor" type="text" placeholder="e.g. busy parents, small desks" />
+            </label>
+          </div>
+          <p class="form-warning">Only submit reviews that reflect your own genuine use and opinion. Amazon removes reviews that aren't.</p>
+          <div class="stage-actions split"><button class="back" type="button" data-back="1">← Back</button><button class="primary" type="submit" id="createDraft">Create review draft <span>→</span></button></div>
         </form>
       </section>
 
       <section class="card stage" id="stage-3" aria-labelledby="draft-heading">
         <div class="stage-heading draft-heading">
           <div><p class="eyebrow">STEP 03</p><h2 id="draft-heading">Your review draft</h2></div>
-          <span class="ready-chip">Ready to personalize</span>
+          <span class="ready-chip" id="engineChip">Ready to personalize</span>
         </div>
+        <div class="draft-controls">
+          <label>Tone
+            <select id="tone"><option value="casual">Casual</option><option value="balanced" selected>Balanced</option><option value="detailed">Detailed</option></select>
+          </label>
+          <label>Length
+            <select id="length"><option value="short">Short</option><option value="medium" selected>Medium</option><option value="long">Long</option></select>
+          </label>
+          <label>Format
+            <select id="format"><option value="paragraphs">Paragraphs</option><option value="pros-cons">With pros &amp; cons</option></select>
+          </label>
+          <button class="secondary" type="button" id="regenerate">↻ Rewrite</button>
+        </div>
+        <div class="draft-status" id="draftStatus" aria-live="polite"></div>
         <div class="draft-product" id="draftProduct">PRODUCT</div>
         <div class="title-box" contenteditable="true" id="reviewTitle" aria-label="Review title"></div>
         <div class="review-box" contenteditable="true" id="reviewText" aria-label="Review text"></div>
         <div class="draft-footer">
           <span id="wordCount">0 words</span>
-          <span>Click either field to edit</span>
+          <span>Click either field to edit. Read it through before posting.</span>
         </div>
         <div class="stage-actions split"><div class="draft-actions"><button class="back" type="button" data-back="2">← Adjust answers</button><button class="back" type="button" id="anotherProduct">Review another product</button></div><button class="primary copy" id="copyReview">Copy review <span>⧉</span></button></div>
         <p class="copy-feedback" id="copyFeedback" aria-live="polite"></p>
@@ -140,6 +192,60 @@
 
       <footer>REVIEW SPRINT <span>•</span> Make the review sound like you.</footer>
     </main>
+
+    <dialog class="settings" id="aiSettings" aria-labelledby="aiSettingsTitle">
+      <form method="dialog" id="aiSettingsForm">
+        <p class="eyebrow">OPTIONAL</p>
+        <h2 id="aiSettingsTitle">AI writing</h2>
+        <p class="settings-lede">Without AI, the app builds a structured draft from your answers. With a free AI key it also asks questions specific to your product and writes a fuller, more natural review. Your key is saved only in this browser and sent only to the provider you pick.</p>
+        <p class="key-guide-title">Get a free API key <span class="soft">(about 1 minute, no credit card)</span></p>
+        <div class="key-guide">
+          <div class="key-card" data-provider="gemini">
+            <div class="key-card-head"><strong>Google Gemini</strong><span class="key-badge">Recommended</span></div>
+            <ol>
+              <li>Sign in with your Google account.</li>
+              <li>Click <b>Create API key</b>. Pick any project if it asks.</li>
+              <li>Copy the key (starts with <code>AIza</code>) and paste it below.</li>
+            </ol>
+            <a class="key-link" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Open Google AI Studio ↗</a>
+          </div>
+          <div class="key-card" data-provider="groq">
+            <div class="key-card-head"><strong>Groq</strong><span class="key-badge muted">Fast</span></div>
+            <ol>
+              <li>Sign up with Google, GitHub, or email.</li>
+              <li>Open <b>API Keys</b> and click <b>Create API Key</b>.</li>
+              <li>Copy the key (starts with <code>gsk_</code>). It's only shown once.</li>
+            </ol>
+            <a class="key-link" href="https://console.groq.com/keys" target="_blank" rel="noopener">Open Groq Console ↗</a>
+          </div>
+        </div>
+        <label>Provider
+          <select id="aiProvider">
+            <option value="none">Off (built-in template)</option>
+            <option value="gemini">Google Gemini (free, recommended)</option>
+            <option value="groq">Groq (free)</option>
+          </select>
+        </label>
+        <div id="aiKeyFields">
+          <p class="provider-note" id="providerNote"></p>
+          <label>API key
+            <input id="aiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key" />
+          </label>
+          <p class="field-note">Don't have one yet? <a id="aiKeyLink" href="#" target="_blank" rel="noopener">Get a free key</a>. Pasting a key picks the matching provider automatically.</p>
+          <label>Model <span class="soft">Optional</span>
+            <input id="aiModel" type="text" autocomplete="off" spellcheck="false" />
+          </label>
+        </div>
+        <div class="settings-status" id="aiTestStatus" aria-live="polite"></div>
+        <div class="settings-actions">
+          <button class="back" type="button" id="aiTest">Test connection</button>
+          <button class="primary compact" value="save" id="aiSave">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="extract.js"></script>
+    <script src="ai.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
