@@ -20,11 +20,22 @@
     }
   };
 
+  // A site owner can run the relay in relay/ so visitors get AI without their own key.
+  const CONFIG = window.REVIEW_SPRINT_CONFIG || {};
+  const RELAY_URL = String(CONFIG.relayUrl || '').trim().replace(/\/+$/, '');
+  const RELAY_BACKEND = PROVIDERS[CONFIG.relayProvider] ? CONFIG.relayProvider : 'gemini';
+  const hasRelay = /^https:\/\//i.test(RELAY_URL);
+
   function loadSettings() {
+    const fallback = hasRelay ? 'shared' : 'none';
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      return { provider: saved.provider || 'none', key: saved.key || '', model: saved.model || '' };
-    } catch { return { provider: 'none', key: '', model: '' }; }
+      let provider = saved.provider || fallback;
+      if (provider === 'shared' && !hasRelay) provider = 'none';
+      // Visitors who never set up their own key start on the shared AI once the site offers it.
+      if (provider === 'none' && hasRelay && !saved.chosenOff) provider = 'shared';
+      return { provider, key: saved.key || '', model: saved.model || '', chosenOff: Boolean(saved.chosenOff) };
+    } catch { return { provider: fallback, key: '', model: '', chosenOff: false }; }
   }
   function saveSettings(settings) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch { /* Storage can be disabled; settings then last for this visit. */ }
@@ -33,12 +44,15 @@
   let settings = loadSettings();
   let lastWorkingModel = '';
   let onProgress = () => {};
-  const enabled = () => settings.provider !== 'none' && PROVIDERS[settings.provider] && settings.key.trim().length > 10;
-  const modelFor = () => lastWorkingModel || settings.model.trim() || PROVIDERS[settings.provider]?.models[0];
+  const isShared = () => settings.provider === 'shared' && hasRelay;
+  // The API the requests go to: the visitor's chosen provider, or the relay's.
+  const backend = () => (isShared() ? RELAY_BACKEND : settings.provider);
+  const enabled = () => isShared() || (Boolean(PROVIDERS[settings.provider]) && settings.key.trim().length > 10);
+  const modelFor = () => lastWorkingModel || (!isShared() && settings.model.trim()) || PROVIDERS[backend()]?.models[0];
 
   // A chosen model goes first; the model that last worked is tried before the rest of the defaults.
   function modelsToTry() {
-    const order = [settings.model.trim(), lastWorkingModel, ...(PROVIDERS[settings.provider]?.models || [])].filter(Boolean);
+    const order = [!isShared() && settings.model.trim(), lastWorkingModel, ...(PROVIDERS[backend()]?.models || [])].filter(Boolean);
     return [...new Set(order)];
   }
 
@@ -49,8 +63,10 @@
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   async function readError(response, model) {
-    let detail = '';
-    try { const body = await response.json(); detail = body.error?.message || body.message || ''; } catch { /* Non-JSON error body. */ }
+    let detail = ''; let code = '';
+    try { const body = await response.json(); detail = body.error?.message || body.message || ''; code = String(body.error?.status || ''); } catch { /* Non-JSON error body. */ }
+    // Relay errors are already written for visitors; only an unknown model should fall through to the next one.
+    if (code.startsWith('RELAY_')) return new AiError(detail || 'The shared AI is unavailable right now.', { status: response.status, detail, fatal: code !== 'RELAY_MODEL' });
     if (response.status === 401 || response.status === 403 || /api key/i.test(detail)) {
       return new AiError('The AI key was rejected. Check it in AI settings.', { status: response.status, detail, fatal: true });
     }
@@ -79,7 +95,9 @@
     // Structured JSON output and the search tool can't be combined, so search replies are parsed loosely.
     if (json && !search) body.generationConfig.responseMimeType = 'application/json';
     if (search) body.tools = [{ google_search: {} }];
-    const data = await post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { 'x-goog-api-key': settings.key.trim() }, body, model);
+    const data = isShared()
+      ? await post(`${RELAY_URL}/gemini/${encodeURIComponent(model)}`, {}, body, model)
+      : await post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { 'x-goog-api-key': settings.key.trim() }, body, model);
     const text = (data.candidates?.[0]?.content?.parts || []).map((part) => part.text || '').join('');
     if (!text) throw new AiError(data.promptFeedback?.blockReason ? `The AI declined this request (${data.promptFeedback.blockReason}).` : 'The AI returned an empty reply.', { fatal: Boolean(data.promptFeedback?.blockReason) });
     return text;
@@ -88,7 +106,9 @@
   async function callGroq(model, { system, prompt, json, temperature }) {
     const body = { model, temperature, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] };
     if (json) body.response_format = { type: 'json_object' };
-    const data = await post('https://api.groq.com/openai/v1/chat/completions', { Authorization: `Bearer ${settings.key.trim()}` }, body, model);
+    const data = isShared()
+      ? await post(`${RELAY_URL}/groq`, {}, body, model)
+      : await post('https://api.groq.com/openai/v1/chat/completions', { Authorization: `Bearer ${settings.key.trim()}` }, body, model);
     const text = data.choices?.[0]?.message?.content || '';
     if (!text) throw new AiError('The AI returned an empty reply.');
     return text;
@@ -96,7 +116,7 @@
 
   // Tries each model in turn; a busy model gets one short retry before moving on.
   async function callWithFallback(options) {
-    const call = settings.provider === 'gemini' ? callGemini : callGroq;
+    const call = backend() === 'gemini' ? callGemini : callGroq;
     const models = modelsToTry();
     let lastError;
     for (const [index, model] of models.entries()) {
@@ -117,7 +137,7 @@
     }
     const everyModelBusy = lastError && (isBusy(lastError) || lastError.status === 429);
     throw new AiError(everyModelBusy
-      ? `Every free ${PROVIDERS[settings.provider].name} model is overloaded or rate-limited right now. That's on the provider's side. Wait a minute and try again, or switch provider in AI settings.`
+      ? `Every free ${PROVIDERS[backend()].name} model is overloaded or rate-limited right now. That's on the provider's side. Wait a minute and try again${isShared() ? ', or add your own free key in AI settings' : ', or switch provider in AI settings'}.`
       : lastError?.message || 'The AI request failed.');
   }
 
@@ -218,7 +238,7 @@ Return JSON: {"title": "...", "body": "..."}`
 
   // Search-grounded lookup for links Amazon won't let us read directly (Gemini only).
   async function lookupProduct(url, asin) {
-    if (settings.provider !== 'gemini') throw new Error('Link lookup needs the Gemini provider.');
+    if (backend() !== 'gemini') throw new Error('Link lookup needs the Gemini provider.');
     const result = await ask({
       json: true,
       search: true,
@@ -246,12 +266,19 @@ If you can't identify this exact product, return {"found": false}.`
   window.AI = {
     PROVIDERS,
     get settings() { return { ...settings }; },
-    update(next) { settings = { ...settings, ...next }; lastWorkingModel = ''; saveSettings(settings); },
+    update(next) {
+      const changed = ['provider', 'key', 'model'].some((field) => field in next && next[field] !== settings[field]);
+      settings = { ...settings, ...next };
+      if (changed) lastWorkingModel = '';
+      saveSettings(settings);
+    },
     enabled,
     modelFor,
     onProgress(listener) { onProgress = typeof listener === 'function' ? listener : () => {}; },
-    providerName: () => PROVIDERS[settings.provider]?.name || '',
-    canLookup: () => enabled() && settings.provider === 'gemini',
+    providerName: () => (isShared() ? 'free AI' : PROVIDERS[settings.provider]?.name || ''),
+    canLookup: () => enabled() && backend() === 'gemini',
+    hasRelay,
+    isShared,
     generateQuestions,
     writeReview,
     lookupProduct,

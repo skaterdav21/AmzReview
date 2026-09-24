@@ -1,0 +1,19 @@
+# Only needed if you deploy with the Wrangler CLI (`npx wrangler deploy` from this folder).
+# Deploying through the Cloudflare dashboard works without this file; see relay/README.md.
+name = "review-sprint-ai"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://skaterdav21.github.io"
+HOURLY_LIMIT = "40"
+
+# Short-burst limit per visitor (10 requests per minute), shared across all Cloudflare locations.
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
+# Keys are secrets, never put them in this file:
+#   npx wrangler secret put GEMINI_API_KEY
+#   npx wrangler secret put GROQ_API_KEY   (optional)
